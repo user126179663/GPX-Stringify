@@ -3,7 +3,7 @@ class MicroCore {
 	static $str = Symbol('MicroCore.str');
 	static cache = {};
 	
-	// 循環参照には非対応
+	// オブジェクトのクローンを作成する。循環参照には非対応
 	static clone(object) {
 		
 		if (!object || typeof object !== 'object') return object;
@@ -34,6 +34,8 @@ class MicroCore {
 			
 			i = -1;
 			while (++i < l) (isArray(o = object[k = keys[i]]) || o.constructor === Object) && cleanup(o), delete object[k];
+			
+			isArray(object) && (object.length = 0);
 			
 		}
 		
@@ -94,25 +96,17 @@ class MicroEscaper extends MicroCore {
 	
 	static $esc = Symbol('MicroEscaper.esc');
 	
-	static cache = { [MicroEscaper.$esc]: {} };
+	static cache = { [this.$esc]: {} };
 	
 	static esc = '\\';
 	
-	constructor(str) {
+	constructor(str, esc = this.constructor.esc) {
 		
-		super(str);
+		super(str),
+		
+		this[MicroEscaper.$esc] = esc;
 		
 	}
-	
-	//escape(chr, fromIndex = 0) {
-	//	
-	//	const	{ cache } = this;
-	//	
-	//	if (!(chr in cache)) for (const v of this.escaping(chr, fromIndex));
-	//	
-	//	return cache[chr];
-	//	
-	//}
 	
 	escape(chr = this.constructor.esc, fromIndex = 0, toIndex, includes) {
 		
@@ -124,7 +118,7 @@ class MicroEscaper extends MicroCore {
 		else {
 			
 			const	{ sort } = MicroEscaper,
-					{ constructor: { esc }, str } = this,
+					{ esc, str } = this,
 					escLength = esc.length,
 					chrLength = chr.length,
 					escMode = esc === chr,
@@ -138,7 +132,7 @@ class MicroEscaper extends MicroCore {
 				
 				while ((escIndex -= escLength) > -1 && str.substr(escIndex, escLength) === esc);
 				
-				(escaped = ((foundIndex - (escIndex += escLength)) % 2)),
+				(escaped = !!((foundIndex - (escIndex += escLength)) % 2)),
 				
 				included[++i] = { chr, end: foundIndex, esc, escaped, executor: this, start: escIndex },
 				escaped || (excluded[++i0] = included[i]);
@@ -160,258 +154,81 @@ class MicroEscaper extends MicroCore {
 		
 	}
 	
-}
-class GlobalCapturer extends MicroEscaper {
-	
-	static L = '{';
-	static R = '}';
-	static enc = '"';
-	
-	constructor(str) {
+	get esc() {
 		
-		super(str);
+		return this[MicroEscaper.$esc];
+		
+	}
+	set esc(v) {
+		
+		const { $esc } = MicroEscaper;
+		
+		v === this[$esc] || (this.structureCache(), this[$esc] = v);
 		
 	}
 	
-	exc() {
+}
+class MicroEnclosure extends MicroEscaper {
+	
+	static $enc = Symbol('MicroEnclosure.enc');
+	
+	static cache = { [this.$enc]: [] };
+	
+	static enc = '"';
+	
+	constructor(str, enc = this.constructor.enc) {
 		
-		const { constructor: { L }, str } = this, lIds = this.escape(L), lIdsLength = lIds.length;
+		super(str),
 		
-		if (!lIdsLength) return str;
+		this[MicroEnclosure.$enc] = enc;
 		
-		const { constructor: { R } } = this, rIds = this.escape(R), rIdsLength = rIds.length
+	}
+	
+	enclose() {
 		
-		if (!rIdsLength) return str;
+		const { $enc } = MicroEnclosure, { cache } = this, enclosed = cache[$enc];
 		
-		const	{ constructor: { enc } } = this,
-				encIndices = this.escape(enc, lIds[0].end, rIds[rIdsLength - 1].start),
-				encIndicesLength = encIndices.length,
-				sealedLIndices = [],
-				sealedRIndices = [],
-				skippedLIndices = [],
-				skippedRIndices = [],
-				parsed = [];
-		let i,l,i0,l0,i1,i2, sldLIdsI,sldRIdsI,skpLIdsI,skpRIdsI, esci, lIdx,lIdx0,lIdx0End,rIdx, pi, result;
+		if (cache.enclosed) return enclosed;
 		
-		// todo: 出力前のエスケープ文字の処理。
+		const	{ constructor: { enc } } = this, indices = this.escape(enc), l = indices.length;
 		
-		// ルールは、エスケープが必要な文字は、ブロック外ではブロックの両端を示す { }、ブロック内では原則必要ないが、
-		// 文字列を示す " で囲んだ中では、" をエスケープする必要がある。それら以外は、ブロック内でも外でもエスケープする必要はない。
-		// そのため、プログラム上でブロックを認識するには、限られた情報からその境界を定めなくてはならない。
-		// またひとつのテキスト中で任意の数のブロックを埋め込むことができる。さらにブロックはネストも許容する。
+		if (l % 2) throw new SyntaxError(`"" literal not terminated after column ${indices[l - 1].end}.`);
 		
-		// 基本的なアイデアは、どんなテキストでも、エスケープされていない最初の { は最初のブロックの左端境界であることが確定していると言うことである。
-		// ブロックのキャプチャ処理は、このアイデアに基づいて、またそれを起点として行なわれる。
+		let i,i0;
 		
-		// 一番最初の { は " で囲われていないことが論理上確定しているので処理の起点としてそのまま使われる。
-		// ただしループの二周目以降の { は、それ以前の処理を通じて " で囲われていないことを確認しておく必要がある。
-		i = sldLIdsI = sldRIdsI = skpLIdsI = skpRIdsI = pi = -1, parsed[++pi] = 0;
-		while (++i < lIdsLength) {
-			
-			// 既に " で囲われてることが確認されている { はここで処理を回避する。
-			i0 = -1, l0 = sldLIdsI + 1;
-			while (++i0 < l0 && sealedLIndices[i0] !== i);
-			if (i0 < l0) continue;
-			
-			// 現在の { を境界左端と仮定した状態で、それと対になる } を配列の先頭から検索する。
-			i0 = -1, lIdx = lIds[i];
-			while (++i0 < rIdsLength) {
-				
-				// このループで重要な点として、現在の { が左の境界と言うことが確定しているとすれば、
-				// その内部に " が存在していれば、最初の " のあとに現われる " は、自動的に対とすることができると言う仮定を用いている。
-				// そうでなければ、{ } の中にエスケープされていない " が単体で存在することは許されないためシンタックスエラーになることを意味する。
-				// そのため、現在の { を左端として仮定するのと同じように、最初とその次に現われる " をペアとして仮定する。
-				// すると、{ のあとに現われる } が " の前に存在していれば、それが現在の { とペアになるかはともかく、どこかしらの境界と判断できる。
-				// またペアになった " の中に存在していればそれは文字列で無視できる。
-				// " のあとに存在していれば、それは境界の可能性があるが、仮定した " のペアの、まだ存在が確認されていない次のペア内に存在する可能性があるため、
-				// 現在の } のまま、" のペアだけ次に移す処理をしてこのループ内の処理をやり直す。
-				// そうした結果、ペアと仮定した " の前に } があることを確認できれば、次はその } の直前に現われる { を検索する。
-				// ここまでの処理で、現在の } の前に存在する " のペアは確認できているため、その { がそれらの中に存在しないことを確認して、
-				// もしループの最初の { よりも前に " に囲まれていない { を見つけたら、
-				// それは現在の } とペアと考えることはできるが、現在は最初の { とペアになる } を探しているため、
-				// その { }  は、最初の { の中にネストするペアとして、{ は今後確認する必要がないものとして記録して、
-				// 再度 } のループの最初からやり直す。この時、} は最初に使った } の次の } に移している。
-				// そうして { が最初の { の直近にある " よりも前に存在して、さらにそれが最初の { と一致していれば、
-				// 現在の } と、ループの最初の { が一番外側のペアとして確定させられる。
-				// 仮に { よりも前に別の { が存在していれば、やはり次の } からループをやり直す。
-				// 結果、外側のテキストと内部の書式の境界が完全に確定する。
-				// これは同時に、確定した境界以前の " のペアも境界で隔てることができるようになったことを意味する。
-				// 次のループから始まる { は自動的に次のブロックの左端境界であることが確定しているので、
-				// 今確定したブロックと現在の { の間にあるテキスト内に " が存在していても、それは通常の文字列であることが確定させられる。
-				
-				// 現在の } が文字列であるかどうかの確認。その場合、何も処理せずにループを次に進める。
-				i1 = -1, l0 = sldRIdsI + 1;
-				while (++i1 < l0 && sealedRIndices[i1] !== i0);
-				if (i1 < l0) continue;
-				i1 = -1, l0 = skpRIdsI + 1;
-				while (++i1 < l0 && skippedRIndices[i1] !== i0);
-				if (i1 < l0) continue;
-				
-				rIdx = rIds[i0];
-				
-				// テキスト中に " が存在しないか、現在の } が、現在の " の左端境界よりも前方に存在している場合。
-				// この時のみ、ブロックの境界確定判定処理に入れる。
-				if	(!encIndicesLength || rIdx.end < encIndices[esci].end) {
-					
-					// { を後方から走査し、現在の } の直前に現われる { を検索する。
-					i1 = lIdsLength;
-					while (--i1 > i - 1) {
-						
-						// 上記 { が存在すれば、それは現在の } とのペア候補となる。
-						if	(
-								(lIdx0 = lIds[i1]).end < rIdx.end &&
-								sealedLIndices.indexOf(i1) === -1 &&
-								skippedLIndices.indexOf(i1) === -1
-							)
-						{
-							//hi(i,i1,i0);
-							if (encIndicesLength && lIdx0 !== lIds[i]) {
-								
-								// 現在の } とペアになり得る { が、いずれかの " 内の文字列であるかどうかを後方から確認する。
-								// そうであった場合、このループは途中で処理を打ち切られ、
-								// ペアの候補だった { は対象外とされ、外側のループに戻り次の { の検索を再開する。。
-								// そうでなかった場合、このループは終端で止まり、外側のループを強制的に抜け出し、ペアの候補を今のループ内の { で確定する。
-								// この時、確定するのは候補であることだけで、まだ実際のペアであるかどうかの確定は保留されている。
-								
-								i2 = esci, lIdx0End = lIdx0.end;
-								while ((i2 -= 2) > -1 && (lIdx0End < encIndices[i2].end || lIdx0End > encIndices[i2 + 1].end));
-								
-								// 候補の { が " で囲まれていた場合、それは文字列として記録し、ループを次の { に進めてやり直す。
-								
-								if (i2 > -1) {
-									
-									sealedLIndices[++sldLIdsI] = i1;
-									continue;
-									
-								}
-								
-								//if (i2 < 0) break; else (sealedLIndices[sealedLIndices.length] = i1);
-								
-							}
-							
-							// これまでの処理で候補として確定した { が、一番外側のループ処理の対象となっている現在の { と同じものであれば
-							// 現在の } ペアとしてブロックの境界が確定する。
-							// 異なるものだった場合、それは文字列として今後も候補の対象としないように記録した上で、ループを次の { に進める。
-							
-							if (lIdx0 === lIdx) {
-								
-								// こうして確定したブロックの内部の文字列は、その外側のテキストとは切り離して、
-								// ブロックの境界をまたぐ際のルールに制約されることなくパースを行なうことができるようになる。
-								
-								// parsed[parsed.length] = new MicroParser(this.str.slice(lIds[i].end + 1, rIds[i].start)).exc(),
-								//parsed[++pi] = str.slice(0, lIdx.end),
-								//parsed[++pi] = str.slice(rIdx.end + 1),
-								parsed[++pi] = lIdx.end,
-								parsed[++pi] = str.slice(lIdx.end + 1, rIdx.end),
-								parsed[++pi] = rIdx.end + 1,
-								
-								sealedLIndices[++sldLIdsI] = i,
-								sealedRIndices[++sldRIdsI] = i0,
-								
-								skippedLIndices.length = skippedRIndices.length = 0,
-								skpLIdsI = skpRIdsI = -1;
-								
-							} else {
-								
-								sealedLIndices[++sldLIdsI] = i1,
-								sealedRIndices[++sldRIdsI] = i0;
-								
-							}
-							//hi(i,i1,i0,skippedLIndices,skippedRIndices);
-							break;
-							
-							// // 現在の } とペアになり得る { が、いずれかの " 内の文字列であるかどうかを後方から確認する。
-							// // そうであった場合、このループは途中で処理を打ち切られ、
-							// // ペアの候補だった { は対象外とされ、外側のループに戻り次の { の検索を再開する。。
-							// // そうでなかった場合、このループは終端で止まり、外側のループを強制的に抜け出し、ペアの候補を今のループ内の { で確定する。
-							// // この時、確定するのは候補であることだけで、まだ実際のペアであるかどうかの確定は保留されている。
-							// i2 = esci, lIdx0End = lIdx0.end;
-							// while ((i2 -= 2) > -1 && lIdx0End > (encIdxEnd = encIndices[i2]).end && lIdx0End < encIdxEnd);
-							// 
-							// //if (i2 < 0) break; else (sealedLIndices[sealedLIndices.length] = i1);
-							// 
-							// // 上記ループ内で候補として確定した { が、一番外側のループ処理の対象となっている現在の { と同じものであれば
-							// // 現在の } ペアとしてブロックの境界が確定する。
-							// // 異なるものだった場合、それは文字列として今後も候補の対象としないように記録した上で、
-							// // ループをやり直し別の候補を検索し直す。
-							// if (i2 < 0 && lIdx0 === lIds[i]) {
-							// 	
-							// 	// こうして確定したブロックの内部の文字列は、その外側のテキストとは切り離して、
-							// 	// ブロックの境界をまたぐ際のルールに制約されることなくパースを行なうことができるようになる。
-							// 	
-							// 	parsed[parsed.length] = new MicroParser(this.str.slice(lIds[i].end + 1, rIds[i].start)).exc();
-							// 	
-							// 	break;
-							// 	
-							// } else lIdx0 && (sealedLIndices[++sldLIdsI] = i1);
-							
-						}
-						
-					}
-					
-					//if (lIds[i1] !== lIds[i]) {
-					//	
-					//	sealedLIndices[sealedLIndices.length] = i1;
-					//	continue;
-					//	
-					//}
-					
-					
-				} else {
-					
-					// このブロックに入った場合、現在の } は、現在の { のあとにある " 内の文字列であるか、それよりも後方にあると判断される。
-					// 現在の " よりも後方だった場合、" を現在のものから次の " のペアに移した上で、現在の } まま、今のループをやり直す。
-					// 文字列だった場合、それを記録してループを次の } に進める。
-					
-					rIdx.end > escIndices[esci + 1].end ? (esci += 2, --i0) : (sealedRIndices[++sldRIdsI] = i0);
-					
-				}
-				
-				if (lIdx0 === lIdx) break;
-				
-			}
-			
-			//if (capR[i0].end < escIndices[esci].end) {
-			//	
-			//	
-			//} else if (capR[i0].end > escIndices[esci + 1].end) {
-			//}
-			//escIndices[esci]
-			//
-			//cL = capL[li = i], l0 = (cR = capR[++ri]).end;
-			//while (++li < capLLength && capL[li].end < cR.end) conL.indexOf(li);
-			//
-			//if (i !== li) {
-			//	--i;
-			//	continue;
-			//}
-			//
-			//i0 = -1, cL = capL[i];
-			//while (++i0 < capRLength && ((cR = capR[i0]).escaped || (cL.end > cR.end && confirmed.indexOf(i0) !== -1)));
-			//
-			//if (i0 < capRLength) {
-			//	
-			//	this.enc.
-			//	
-			//}
-			
-		}
+		i = -2, i0 = -1;
+		while ((i += 2) < l) enclosed[++i0] = { l: indices[i], r: indices[i + 1] };
 		
-		parsed[++pi] = str.length;
+		cache.enclosed = true;
 		
-		i = -2, l = pi + 1, result = '';
-		while ((i += 2) < l) result += typeof parsed[i] === 'string' ? (--i, '') : str.slice(parsed[i], parsed[i + 1]);
-		hi(str, parsed);
-		return result;
+		return enclosed;
+		
+	}
+	
+	get enc() {
+		
+		return this[MicroEnclosure.$enc];
+		
+	}
+	set enc(v) {
+		
+		const { $enc } = MicroEnclosure;
+		
+		v === this[$enc] || (this.structureCache(), this[$enc] = v);
 		
 	}
 	
 }
 class MicroCapturer extends MicroEscaper {
 	
-	static capL = '{';
-	static capR = '}';
+	static $L = Symbol('MicroCapturer.L');
+	static $R = Symbol('MicroCapturer.R');
 	
+	static L = '{';
+	static R = '}';
+	
+	// このオブジェクトのインスタンスのメソッド capture の戻り値を、その値に基づいてネスト構造にする。
+	// ネスト先へは、各インデックスを示すオブジェクトのプロパティ nest から辿れる。
 	static structure(indices) {
 		
 		const { construct, sort } = MicroCapturer, structured = [];
@@ -437,9 +254,12 @@ class MicroCapturer extends MicroEscaper {
 		
 	}
 	
-	constructor(str) {
+	constructor(str, L = this.constructor.L, R = this.constructor.R) {
 		
-		super(str);
+		super(str),
+		
+		this[MicroCapturer.$L] = L,
+		this[MicroCapturer.$R] = R;
 		
 	}
 	
@@ -489,29 +309,196 @@ class MicroCapturer extends MicroEscaper {
 		
 	}
 	
+	get L(v) {
+		
+		return this[MicroCapturer.$L];
+		
+	}
+	set L(v) {
+		
+		const { $L } = MicroCapturer;
+		
+		v === this[$L] || (this.structureCache(), this[$L] = v);
+		
+	}
+	get R(v) {
+		
+		return this[MicroCapturer.$R];
+		
+	}
+	set R(v) {
+		
+		const { $R } = MicroCapturer;
+		
+		v === this[$R] || (this.structureCache(), this[$R] = v);
+		
+	}
+	
 }
-class MicroEnclosure extends MicroEscaper {
+class MicroParser extends MicroCore {
 	
-	static enc = '"';
+	static $bkt = Symbol('MicroParser.bkt');
+	static $cap = Symbol('MicroParser.cap');
+	static $enc = Symbol('MicroParser.enc');
+	static $esc = Symbol('MicroParser.esc');
+	static $sep = Symbol('MicroParser.sep');
 	
-	constructor(str) {
+	static esc = '\\';
+	static bracketL = '(';
+	static bracketR = ')';
+	static separator = ' ';
+	
+	static getExcluded(chrIndices, bounds) {
+		
+		const cl = chrIndices.length, bl = bounds.length, excluded = [];
+		let i,i0, ei, cIdx, bIdx;
+		
+		i = ei = -1;
+		while (++i < cl) {
+			
+			i0 = -1, cIdx = cIndices[i];
+			while (++i0 < bl) cIdx.end < (bIdx = bounds[i].l.end) || cIdx.end > bIdx.r.end (excluded[++ei] = cIdx);
+			
+		}
+		
+		return excluded;
+		
+	}
+	
+	constructor(str, esc = this.constructor.esc, enc, cap, bkt, sep = this.constructor.separator) {
 		
 		super(str);
 		
-	}
-	
-	enclose() {
+		const { $bkt, $cap, $enc, $esc, $sep } = MicroParser, { constructor: { bracketL, bracketR } } = this;
 		
-		const	{ constructor: { enc } } = this,
-				indices = this.escape(enc);
+		this[$enc] = enc instanceof MicroEnclosure ? enc : new MicroEnclosure(str),
+		this[$cap] = cap instanceof MicroCapturer ? cap : new MicroCapturer(str),
+		this[$bkt] = bkt instanceof MicroCapturer ? bkt : new MicroCapturer(str, bracketL, bracketR),
+		this[$sep] = sep,
 		
-		//coco 例えば 'abc"def{a(0,1,"{a",2)}g"h{b("a\\"b}cd")}i"j' と言うケースに耐え得る設計
-		
-		
+		this.updateChrs(esc, true);
 		
 	}
 	
-	enclosing() {
+	exc() {
+		
+		
+		
+	}
+	
+	split() {
+		
+		const { $bkt, $cap, $enc, $sep, $str, getIncluded } = MicroParser,
+				sepIndices =	getExcluded(
+										this.escape(this[$sep]),
+										[ ...this[$bkt].capture(), ...this[$cap].capture(), ...this[$enc].enclose() ]
+									),
+				l = sepIndices.length,
+				str = this[$str],
+				splitted = [];
+		let i,i0, indexStart;
+		
+		i = i0 = -1, indexStart = 0;
+		while (++i < l)	splitted[++i0] = str.slice(indexStart, sepIndices[i].end).trim(),
+								indexStart = sepIndices[i].end + 1;
+		
+		return splitted;
+		
+	}
+	
+	updateEsc(esc, disablesStructuring) {
+		
+		const { $bkt, $cap, $enc, $esc } = MicroParser;
+		
+		this[$esc] = this[$enc].esc = this[$cap].esc = this[$bkt].esc = esc,
+		
+		disablesStructuring || this.structureCache();
+		
+	}
+	updateStr(str) {
+		
+		const { $str } = MicroCore, { $bkt, $cap, $enc } = MicroParser;
+		
+		this[$str] = this[$enc].str = this[$cap].str = this[$bkt].str = str,
+		
+		this.structureCache();
+		
+	}
+	
+	get bkt(v) {
+		
+		return this[MicroParser.$bkt];
+		
+	}
+	set bkt(v) {
+		
+		const { $esc, $bkt } = MicroParser, bkt = this[$bkt];
+		
+		v !== bkt && v instanceof MicroCapturer && (this.structureCache(), (this[$bkt] = bkt).esc = this[$esc]);
+		
+	}
+	get cap(v) {
+		
+		return this[MicroParser.$cap];
+		
+	}
+	set cap(v) {
+		
+		const { $esc, $cap } = MicroParser, cap = this[$cap];
+		
+		v !== cap && v instanceof MicroCapturer && (this.structureCache(), (this[$cap] = cap).esc = this[$esc]);
+		
+	}
+	get enc(v) {
+		
+		return this[MicroParser.$enc];
+		
+	}
+	set enc(v) {
+		
+		const { $esc, $enc } = MicroParser, enc = this[$enc];
+		
+		v !== enc && v instanceof MicroEnclosure && (this.structureCache(), (this[$enc] = enc).esc = this[esc]);
+		
+	}
+	get esc(v) {
+		
+		return this[MicroParser.$esc];
+		
+	}
+	set esc(v) {
+		
+		v === this[MicroParser.$esc] || this.updateEsc(v);
+		
+	}
+	get sep(v) {
+		
+		return this[MicroParser.$sep];
+		
+	}
+	set sep(v) {
+		
+		const { $sep } = MicroParser;
+		
+		v === this[$sep] || (this.structureCache(), this[$sep] = v);
+		
+	}
+	
+	set str(v) {
+		
+		v === this[MicroCore.$str] || this.updateStr(v);
+		
+	}
+	
+}
+class MicroCoParser extends MicroParser {
+	
+	this.separator = ',';
+	
+	constructor() {
+		
+		super(...arguments);
+		
 	}
 	
 }
@@ -920,6 +907,140 @@ class _MicroParser {
 		}
 		
 		this[MicroParser.$str] = v;
+		
+	}
+	
+}
+class GlobalCapturer extends MicroEscaper {
+	
+	static L = '{';
+	static R = '}';
+	static enc = '"';
+	
+	constructor(str) {
+		
+		super(str);
+		
+	}
+	
+	// 現状の仕様は、ブロックの左右両端は最短一致で境界を定める。
+	// 例えば a{b}c}d だと、ブロックは {b}c} ではなく {b} になる。
+	// この時、c} は単なる文字列として扱いシンタックスエラーにならない。
+	// 一方、 abc}c}d もシンタックスエラーにはならず、構文が存在しない単なる文字列として認識される。
+	// こうした仕様は実装後に判明した動作で、実際のところ想定していたものではないが、
+	// ブロックの境界として意図していない { や } をエスケープせずに使えると言う点で合理的ではあるので現状では許容している。
+	
+	exc() {
+		
+		const { constructor: { L }, str } = this, lIds = this.escape(L), lIdsLength = lIds.length;
+		
+		if (!lIdsLength) return str;
+		
+		const { constructor: { R } } = this, rIds = this.escape(R), rIdsLength = rIds.length;
+		
+		if (!rIdsLength) return str;
+		
+		const	{ constructor: { enc } } = this,
+				encIndices = this.escape(enc, lIds[0].end, rIds[rIdsLength - 1].start),
+				encIndicesLength = encIndices.length,
+				sealedLIndices = [],
+				sealedRIndices = [],
+				skippedLIndices = [],
+				skippedRIndices = [],
+				parsed = [];
+		let i,l,i0,l0,i1,i2, sldLIdsI,sldRIdsI,skpLIdsI,skpRIdsI, enci, lIdx,lIdx0,lIdx0End,rIdx, pi, result;
+		
+		// todo: 出力前のエスケープ文字の処理。
+		
+		i = sldLIdsI = sldRIdsI = skpLIdsI = skpRIdsI = pi = -1, parsed[++pi] = enci = 0;
+		while (++i < lIdsLength) {
+			
+			i0 = -1, l0 = sldLIdsI + 1;
+			while (++i0 < l0 && sealedLIndices[i0] !== i);
+			if (i0 < l0) continue;
+			
+			i0 = -1, lIdx = lIds[i], lIdx0 = undefined;
+			while (++i0 < rIdsLength) {
+				
+				i1 = -1, l0 = sldRIdsI + 1;
+				while (++i1 < l0 && sealedRIndices[i1] !== i0);
+				if (i1 < l0) continue;
+				
+				rIdx = rIds[i0];
+				if	(!encIndicesLength || enci <= encIndicesLength || rIdx.end < encIndices[enci].end) {
+					
+					i1 = lIdsLength;
+					while (--i1 > i - 1) {
+						
+						if	(
+								(lIdx0 = lIds[i1]).end < rIdx.end &&
+								sealedLIndices.indexOf(i1) === -1
+							)
+						{
+							
+							if (encIndicesLength && enci < encIndicesLength + 1 && lIdx0 !== lIdx) {
+								
+								i2 = enci, lIdx0End = lIdx0.end;
+								while ((i2 -= 2) > -1 && (lIdx0End < encIndices[i2].end || lIdx0End > encIndices[i2 + 1].end));
+								
+								if (i2 > -1) {
+									
+									sealedLIndices[++sldLIdsI] = i1;
+									continue;
+									
+								}
+								
+							}
+							
+							if (lIdx0 === lIdx) {
+								
+								parsed[++pi] = lIdx.end,
+								parsed[++pi] = str.slice(lIdx.end + 1, rIdx.end),
+								parsed[++pi] = rIdx.end + 1,
+								
+								sealedLIndices[++sldLIdsI] = i,
+								sealedRIndices[++sldRIdsI] = i0;
+								
+							} else {
+								
+								sealedLIndices[++sldLIdsI] = i1,
+								sealedRIndices[++sldRIdsI] = i0;
+								
+							}
+							
+							break;
+							
+						}
+						
+					}
+					
+				} else {
+					
+					rIdx.end > encIndices[enci + 1].end ? (enci += 2, --i0) : (sealedRIndices[++sldRIdsI] = i0);
+					
+					continue;
+					
+				}
+				
+				if (lIdx0 === lIdx && lIdx0.end < rIdx.end) break;
+				
+				// 上記ブロックの条件を満たさない時は、現在の { 中でネストしている { で、現在の } とペアになっている。
+				// または現在の } が余分の } である場合、現在の { は現在の } よりも後方の } とペアになる可能性がある。
+				// この時、現在の { は現在の } よりも後方に存在している。
+				// これらのいずれかの条件を満たす場合は、現在の } から次の } に移るためにループを進める。
+				
+			}
+			
+			if (lIdx0 !== lIdx) new SyntaxError(`Missing } in compound statement. { opened at column ${lIdx.end}.`);
+			
+		}
+		
+		parsed[++pi] = str.length;
+		
+		i = -2, l = pi + 1, result = '';
+		while ((i += 2) < l) result += typeof parsed[i] === 'string' ? (--i, '') : str.slice(parsed[i], parsed[i + 1]);
+		hi(str, parsed);
+		return result;
 		
 	}
 	
