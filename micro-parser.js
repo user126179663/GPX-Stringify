@@ -1,7 +1,7 @@
 class MicroCore {
 	
+	static $indices = Symbol('MicroCore.indices');
 	static $str = Symbol('MicroCore.str');
-	static cache = {};
 	
 	// オブジェクトのクローンを作成する。循環参照には非対応
 	static clone(object) {
@@ -49,7 +49,7 @@ class MicroCore {
 	
 	constructor(str) {
 		
-		this.str = str;
+		this[MicroCore.$str] = str, this.structureCache();
 		
 	}
 	
@@ -92,56 +92,110 @@ class MicroCore {
 	}
 	
 }
+MicroCore.cache = { [MicroCore.$indices]: [] };
 class MicroEscaper extends MicroCore {
 	
 	static $esc = Symbol('MicroEscaper.esc');
 	
-	static cache = { [this.$esc]: {} };
+	static cache = { [this.$esc]: [] };
 	
 	static esc = '\\';
 	
-	constructor(str, esc = this.constructor.esc) {
+	static restore(str, esc) {
+		
+		const escLength = esc.length;
+		let fromIndex, foundIndex, restored, nextIndex;
+		
+		fromIndex = 0, restored = '';
+		while ((foundIndex = str.indexOf(esc, fromIndex)) !== -1)
+			str[nextIndex = foundIndex + escLength] === esc ?
+				(restored += str.substring(fromIndex, nextIndex), fromIndex = foundIndex + escLength * 2) :
+				(restored += str.substring(fromIndex, foundIndex), fromIndex = nextIndex);
+		
+		return restored += str.substring(fromIndex);
+		
+	}
+	
+	constructor(str, esc) {
 		
 		super(str),
 		
-		this[MicroEscaper.$esc] = esc;
+		this[MicroEscaper.$esc] = esc || this.constructor.esc;
 		
 	}
 	
 	escape(chr = this.constructor.esc, fromIndex = 0, toIndex, includes) {
 		
-		const	{ $esc } = MicroEscaper, { cache } = this, cch = cache[$esc];
+		const	{ $esc } = MicroEscaper, { cache } = this, cached = cache[$esc], cachedLength = cached.length;
 		let i,i0, indices, startIndex, index;
 		
-		if (chr in cch)
-			indices = cch[chr][includes ? 'included' : 'excluded'];
-		else {
+		if (cachedLength) {
+			
+			i = -1;
+			while (++i < cachedLength && cached[i].$ !== chr);
+			i === cachedLength || (indices = cached[i][includes ? 'included' : 'excluded']);
+			
+		}
+		
+		if (!indices) {
 			
 			const	{ sort } = MicroEscaper,
 					{ esc, str } = this,
 					escLength = esc.length,
-					chrLength = chr.length,
 					escMode = esc === chr,
-					findMethod = escMode ? 'lastIndexOf' : 'indexOf',
 					included = [],
 					excluded = [];
-			let currentIndex, escIndex, foundIndex, escaped;
+			let currentIndex, escIndex, chrIndex, escaped;
 			
-			i = i0 = -1, currentIndex = escMode ? str.length : 0, cch[chr] = { included, excluded };
-			while ((foundIndex = escIndex = str[findMethod](chr, currentIndex)) !== -1) {
+			if (chr instanceof RegExp) {
 				
-				while ((escIndex -= escLength) > -1 && str.substr(escIndex, escLength) === esc);
+				i = i0 = -1;
+				for (const matched of str.matchAll(chr)) {
+					
+					chrIndex = escIndex = matched.index;
+					while ((escIndex -= escLength) > -1 && str.substr(escIndex, escLength) === esc);
+					
+					(escaped = !!((chrIndex - (escIndex += escLength)) % 2)),
+					
+					included[++i] =	{
+												chr: matched[0],
+												chrIndex,
+												end: chrIndex + matched[0].length,
+												esc,
+												escaped,
+												executor: this,
+												matched,
+												start: escIndex,
+												target: chr
+											},
+					escaped || (excluded[++i0] = included[i]);
+					
+				}
 				
-				(escaped = !!((foundIndex - (escIndex += escLength)) % 2)),
+			} else {
 				
-				included[++i] = { chr, end: foundIndex, esc, escaped, executor: this, start: escIndex },
-				escaped || (excluded[++i0] = included[i]);
+				const chrLength = chr.length, findMethod = escMode ? 'lastIndexOf' : 'indexOf';
 				
-				if ((currentIndex = escMode ? --escIndex : foundIndex + chrLength) < 0 && escMode) break;
+				i = i0 = -1, currentIndex = escMode ? str.length : 0, cached[cached.length] = { $: chr, included, excluded };
+				while ((chrIndex = escIndex = str[findMethod](chr, currentIndex)) !== -1) {
+					
+					while ((escIndex -= escLength) > -1 && str.substr(escIndex, escLength) === esc);
+					
+					(escaped = !!((chrIndex - (escIndex += escLength)) % 2)),
+					
+					included[++i] =
+						{ chr, end: chrIndex + chrLength, esc, escaped, executor: this, chrIndex, start: escIndex, target: chr },
+					escaped || (excluded[++i0] = included[i]);
+					
+					if ((currentIndex = escMode ? --escIndex : chrIndex + chrLength) < 0 && escMode) break;
+					
+				}
+				
+				escMode && (included.reverse(), excluded.reverse());
 				
 			}
 			
-			escMode && (included.reverse(), excluded.reverse()), indices = includes ? included : excluded;
+			indices = includes ? included : excluded;
 			
 		}
 		
@@ -176,11 +230,11 @@ class MicroEnclosure extends MicroEscaper {
 	
 	static enc = '"';
 	
-	constructor(str, enc = this.constructor.enc) {
+	constructor(str, enc) {
 		
 		super(str),
 		
-		this[MicroEnclosure.$enc] = enc;
+		this[MicroEnclosure.$enc] = enc || this.constructor.enc;
 		
 	}
 	
@@ -219,13 +273,52 @@ class MicroEnclosure extends MicroEscaper {
 	}
 	
 }
-class MicroCapturer extends MicroEscaper {
+class MicroBracket extends MicroEscaper {
 	
-	static $L = Symbol('MicroCapturer.L');
-	static $R = Symbol('MicroCapturer.R');
+	static $L = Symbol('MicroBracket.L');
+	static $R = Symbol('MicroBracket.R');
 	
 	static L = '{';
 	static R = '}';
+	
+	constructor(str, L, R, esc) {
+		
+		super(str, esc);
+		
+		const { $L, $R } = MicroBracket, { constructor: { L: _L, R: _R } } = this;
+		
+		this[$L] = L || _L,
+		this[$R] = R || _R;
+		
+	}
+	
+	get L() {
+		
+		return this[MicroBracket.$L];
+		
+	}
+	set L(v) {
+		
+		const { $L } = MicroBracket;
+		
+		v === this[$L] || (this.structureCache(), this[$L] = v);
+		
+	}
+	get R() {
+		
+		return this[MicroBracket.$R];
+		
+	}
+	set R(v) {
+		
+		const { $R } = MicroBracket;
+		
+		v === this[$R] || (this.structureCache(), this[$R] = v);
+		
+	}
+	
+}
+class MicroCapturer extends MicroBracket {
 	
 	// このオブジェクトのインスタンスのメソッド capture の戻り値を、その値に基づいてネスト構造にする。
 	// ネスト先へは、各インデックスを示すオブジェクトのプロパティ nest から辿れる。
@@ -254,18 +347,9 @@ class MicroCapturer extends MicroEscaper {
 		
 	}
 	
-	constructor(str, L = this.constructor.L, R = this.constructor.R) {
+	constructor(str, L, R, esc) {
 		
-		super(str),
-		
-		this[MicroCapturer.$L] = L,
-		this[MicroCapturer.$R] = R;
-		
-	}
-	
-	exec() {
-		
-		const	{ constructor: { esc, capL, capR } } = this;
+		super(str, L, R, esc);
 		
 	}
 	
@@ -276,61 +360,212 @@ class MicroCapturer extends MicroEscaper {
 		
 		if (!updates && cacheKey in cache) return cache[cacheKey];
 		
-		const	{ constructor: { capL, capR, sort, structure } } = this,
-				lIndices = this.escape(capL),
-				rIndices = this.escape(capR),
+		const	{ constructor: { sort, structure }, L, R } = this,
+				lIndices = this.escape(L, undefined,undefined, true),
+				rIndices = this.escape(R, undefined,undefined, true),
 				rLength = rIndices.length,
 				confirmed = [],
 				indices = [];
 		let i,i0,i1,i2, lIndex,rIndex;
 		
 		i = lIndices.length, i1 = i2 = -1;
-		while (++i > -1) {
+		while (--i > -1) {
 			
 			if (unescapes && (lIndex = lIndices[i]).escaped) continue;
 			
 			i0 = -1, lIndex = lIndices[i];
 			while	(
 						++i0 < rLength &&
-						!(unescapes && (rIndex = rIndices[i0]).escaped) &&
-						lIndex.start < rIndex.start &&
-						confirmed.indexOf(i0) === -1
+							!(
+								(rIndex = rIndices[i0]) &&
+								(unescapes || rIndex.escaped) &&
+								lIndex.start < rIndex.start &&
+								confirmed.indexOf(i0) === -1
+							)
 					);
 			
-			if (i0 === rLength) throw SyntaxError(`Unexpected token: "${capL}".`);
-			
+			if (i0 === rLength) break;//throw SyntaxError(`Unexpected token: "${L}".`);
 			indices[++i1] = { l: lIndex, r: rIndices[confirmed[++i2] = i0] };
 			
 		}
 		
-		if (++i2 < rLength) throw SyntaxError(`Unexpected token: "${bracketR}".`);
+		//if (++i2 < rLength) throw SyntaxError(`Unexpected token: "${R}".`);
 		
 		return cache[cacheKey] = structures ? structure(indices) : indices.sort(sort);
 		
 	}
 	
-	get L(v) {
+}
+class GlobalCapturer extends MicroBracket {
+	
+	static $captured = Symbol('GlobalCapturer.captured');
+	static $enc = Symbol('GlobalCapturer.enc');
+	
+	static enc = '"';
+	
+	constructor(str, L, R, enc, esc) {
 		
-		return this[MicroCapturer.$L];
+		super(str, L, R, esc);
+		
+		const { $enc } = GlobalCapturer;
+		
+		this[$enc] = enc || this.constructor.enc;
 		
 	}
-	set L(v) {
+	
+	// 現状の仕様は、ブロックの左右両端は最短一致で境界を定める。
+	// 例えば a{b}c}d だと、ブロックは {b}c} ではなく {b} になる。
+	// この時、c} は単なる文字列として扱いシンタックスエラーにならない。
+	// 一方、 abc}c}d もシンタックスエラーにはならず、構文が存在しない単なる文字列として認識される。
+	// こうした仕様は実装後に判明した動作で、実際のところ想定していたものではないが、
+	// ブロックの境界として意図していない { や } をエスケープせずに使えると言う点で合理的ではあるので現状では許容している。
+	
+	exc(str) {
 		
-		const { $L } = MicroCapturer;
+		arguments.length ? (this.str = str) : (str = this.str);
 		
-		v === this[$L] || (this.structureCache(), this[$L] = v);
+		const { L } = this, lIds = this.escape(L), lIdsLength = lIds.length;
+		
+		if (!lIdsLength) return str;
+		
+		const { R } = this, rIds = this.escape(R), rIdsLength = rIds.length;
+		
+		if (!rIdsLength) return str;
+		
+		const	{ restore } = MicroEscaper,
+				{ $captured } = GlobalCapturer,
+				{ enc, esc } = this,
+				encIndices = this.escape(enc, lIds[0].end, rIds[rIdsLength - 1].start),
+				encIndicesLength = encIndices.length,
+				sealedLIndices = [],
+				sealedRIndices = [],
+				skippedLIndices = [],
+				skippedRIndices = [],
+				parsed = [];
+		let	i,l,i0,l0,i1,i2,
+				sldLIdsI,sldRIdsI,skpLIdsI,skpRIdsI, enci, lIdx,lIdx0,lIdx0End,lIdsLength0,rIdx,rIdxEnd, p,pi, result;
+		
+		// todo: 出力前のエスケープ文字の処理。
+		
+		// 以下のループの処理は、一番最初の { は左端のブロックの左境界を示すものであることがいかなる状況でも確定していると言う前提から出発する。
+		
+		i = sldLIdsI = sldRIdsI = skpLIdsI = skpRIdsI = pi = -1, parsed[++pi] = enci = 0;
+		while (++i < lIdsLength) {
+			
+			i0 = -1, l0 = sldLIdsI + 1;
+			while (++i0 < l0 && sealedLIndices[i0] !== i);
+			if (i0 < l0) continue;
+			
+			i0 = -1, lIdx = lIds[i], lIdx0 = undefined;
+			while (++i0 < rIdsLength) {
+				
+				i1 = -1, l0 = sldRIdsI + 1;
+				while (++i1 < l0 && sealedRIndices[i1] !== i0);
+				if (i1 < l0) continue;
+				
+				rIdxEnd = (rIdx = rIds[i0]).end;
+				//hi(lIdx.end,rIdx.end, enci,encIndices,rIdxEnd, encIndices[enci+1]?.end,sealedRIndices);
+				//if	(!encIndicesLength || enci <= encIndicesLength || rIdxEnd < encIndices[enci].end) {
+				if	(!encIndicesLength || enci + 1 >= encIndicesLength || rIdxEnd < encIndices[enci + 1].end) {
+					
+					i1 = lIdsLength, lIdsLength0 = i - 1;
+					while (--i1 > lIdsLength0) {
+						
+						if	((lIdx0End = (lIdx0 = lIds[i1]).end) < rIdxEnd && sealedLIndices.indexOf(i1) === -1) {
+							
+							//if (encIndicesLength && enci < encIndicesLength && lIdx0 !== lIdx) {
+							if (encIndicesLength && enci + 1 < encIndicesLength) {
+								
+								i2 = enci - 2;
+								while ((i2 += 2) < encIndicesLength && (lIdx0End < encIndices[i2].end || lIdx0End > encIndices[i2 + 1].end));
+								
+								if (i2 < encIndicesLength) {
+									
+									sealedLIndices[++sldLIdsI] = i1;
+									continue;
+									
+								}
+								
+								//i2 = enci, lIdx0End = lIdx0.end;
+								//while ((i2 += 2) > encIndicesLength && (lIdx0End < encIndices[i2].end || lIdx0End > encIndices[i2 + 1].end));
+								//
+								//if (i2 < encIndicesLength) {
+								//	
+								//	sealedLIndices[++sldLIdsI] = i1;
+								//	continue;
+								//	
+								//}
+								
+							}
+							
+							if (lIdx0 === lIdx) {
+								
+								parsed[++pi] = lIdx.chrIndex,
+								parsed[++pi] = str.slice(lIdx.end, rIdx.chrIndex),
+								parsed[++pi] = rIdx.end,
+								
+								sealedLIndices[++sldLIdsI] = i,
+								sealedRIndices[++sldRIdsI] = i0;
+								
+							} else {
+								
+								sealedLIndices[++sldLIdsI] = i1,
+								sealedRIndices[++sldRIdsI] = i0;
+								
+							}
+							
+							break;
+							
+						}
+						
+					}
+					
+				} else {
+					
+					rIdxEnd > encIndices[enci + 1].end ? (enci += 2, --i0) : (sealedRIndices[++sldRIdsI] = i0);
+					
+					continue;
+					
+				}
+				
+				if (lIdx0 === lIdx && lIdx0.end < rIdx.end) break;
+				
+				// 上記ブロックの条件を満たさない時は、現在の { 中でネストしている { で、現在の } とペアになっている。
+				// または現在の } が余分の } である場合、現在の { は現在の } よりも後方の } とペアになる可能性がある。
+				// この時、現在の { は現在の } よりも後方に存在している。
+				// これらのいずれかの条件を満たす場合は、現在の } から次の } に移るためにループを進める。
+				
+			}
+			
+			if (lIdx0 !== lIdx) new SyntaxError(`Missing } in compound statement. { opened at column ${lIdx.end}.`);
+			
+		}
+		
+		parsed[++pi] = str.length;
+		
+		i = -1, l = pi + 1;
+		while (++i < l)	typeof (p = parsed[i]) === 'string' ?
+									((parsed[i] = new String(p))[$captured] = true) :
+									(
+										parsed[i] = restore(str.slice(p, parsed[i + 1]), esc),
+										parsed.splice(i + 1, 1),
+										--l
+									);
+		
+		return parsed;
 		
 	}
-	get R(v) {
+	
+	get enc() {
 		
-		return this[MicroCapturer.$R];
+		return this[GlobalCapturer.$enc];
 		
 	}
-	set R(v) {
+	set enc(v) {
 		
-		const { $R } = MicroCapturer;
+		const { $enc } = GlobalCapturer;
 		
-		v === this[$R] || (this.structureCache(), this[$R] = v);
+		v === this[$enc] || (this.structureCache(), this[$enc] = v);
 		
 	}
 	
@@ -340,138 +575,419 @@ class MicroParser extends MicroCore {
 	static $bkt = Symbol('MicroParser.bkt');
 	static $cap = Symbol('MicroParser.cap');
 	static $enc = Symbol('MicroParser.enc');
-	static $esc = Symbol('MicroParser.esc');
+	static $exc = Symbol('MicroParser.exc');
+	static $gc = Symbol('MicroParser.gc');
 	static $sep = Symbol('MicroParser.sep');
 	
-	static esc = '\\';
 	static bracketL = '(';
 	static bracketR = ')';
-	static separator = ' ';
+	static separator = /\s+/g;
 	
-	static getExcluded(chrIndices, bounds) {
+	static cache = { co: [], gc: [], mp: [], executed: {} };
+	
+	static sort(a, b) {
 		
-		const cl = chrIndices.length, bl = bounds.length, excluded = [];
-		let i,i0, ei, cIdx, bIdx;
+		return a?.l?.end - b?.l?.end;
 		
-		i = ei = -1;
-		while (++i < cl) {
+	}
+	
+	// indices に指定する値は、エスケープされていないペアになった括弧で、かつそれらがお互いの境界をまたいでいないことが暗黙的に求められる。
+	// そうでない値を指定した場合、戻り値に不整合を起こす可能性がある。
+	static getGlobalBounds(...bounds) {
+		
+		const bl = bounds.sort(MicroParser.sort).length, globals = [];
+		let i,i0, bound,bIdx, gi;
+		
+		i = gi = -1
+		while (++i < bl) {
 			
-			i0 = -1, cIdx = cIndices[i];
-			while (++i0 < bl) cIdx.end < (bIdx = bounds[i].l.end) || cIdx.end > bIdx.r.end (excluded[++ei] = cIdx);
+			i0 = i, bIdx = (bound = bounds[i]).r.end;
+			while (++i0 < bl && bIdx > bounds[i0].l.end);
+			globals[++gi] = bound, i += i0 - 1;
+			//indices.splice(i + 1, i0 = i0 - 1 - i), i -= i0, l -= i0;
 			
 		}
 		
-		return excluded;
+		return globals;
 		
 	}
 	
-	constructor(str, esc = this.constructor.esc, enc, cap, bkt, sep = this.constructor.separator) {
+	static getExcluded(chrIndices, ...bounds) {
+		
+		const bl = bounds.length && (bounds = MicroParser.getGlobalBounds(...bounds)).length;
+		
+		if (bl) {
+			
+			const cl = chrIndices.length, excluded = [];
+			let i,i0,l0, ci,cIdx,cEnd, bi,bIdx,bEnd, ei;
+			
+			i = i0 = bi = ei = -1;
+			while (++i < cl) {
+				
+				cEnd = (cIdx = chrIndices[i]).end;
+				while (++bi < bl && ((cEnd > (bIdx = bounds[bi]).l.end && cEnd < (bEnd = bIdx.r.end)) || cEnd > bEnd));
+				
+				if (bi !== bl) {
+					
+					while (++i0 < bi) excluded[++ei] = bounds[i0];
+					--bi, excluded[++ei] = cIdx;
+					
+				} else ci = i;
+				
+			}
+			
+			if (i0-- !== bi) while (++i0 < bi) excluded[++ei] = bounds[i0];
+			
+			if (ci--) while (++ci < cl) excluded[++ei] = chrIndices[ci];
+			
+			//i = ri = -1, ++ei;
+			//while (++i < ei) {
+			//	
+			//	i0 = -1, exEnd = ((ex = excluded[i])).end;
+			//	while (++i0 < bl && exEnd > (bIdx = bounds[i0]).r.end && (result[++ri] = bIdx));
+			//	result[++ri] = ex;
+			//	
+			//}
+			//
+			//if (ri > -1 && ri + 1 !== ei + bl) {
+			//	
+			//	i = -1;
+			//	while (++i < bl && result[ri].end < bounds[i].r.end);
+			//	while (++i < bl && (result[++ri] = bounds[i]));
+			//	
+			//}
+			
+			return excluded;
+			
+		}
+		
+		return [ ...chrIndices ];
+		
+	}
+	
+	// パースに使われる記号は主に以下のコンストラクターの gc に指定されたものを共有する。
+	// 引数 gc にはオブジェクト GlobalCapturer のインスタンスを指定するが、未指定の場合は同オブジェクトの既定値でインスタンスが作られる。
+	// メソッド update を通じて gc を別のインスタンスに置き換えると、パースに使われる他のオブジェクトの記号も同じものに置き換わる。
+	// update を通じた変更であれば上記のようにインスタンス全体に反映されるが、
+	// gc に指定したインスタンスのプロパティやメソッドを使って個別に変更してもそれはこのオブジェクトの他のインスタンスには反映されない。
+	
+	constructor(str, gc, bracketL, bracketR, sep) {
 		
 		super(str);
 		
-		const { $bkt, $cap, $enc, $esc, $sep } = MicroParser, { constructor: { bracketL, bracketR } } = this;
+		const	{ $bkt, $cap, $enc, $gc, $sep } = MicroParser,
+				{ constructor: { bracketL: bktL, bracketR: bktR, separator: _sep } } = this;
 		
-		this[$enc] = enc instanceof MicroEnclosure ? enc : new MicroEnclosure(str),
-		this[$cap] = cap instanceof MicroCapturer ? cap : new MicroCapturer(str),
-		this[$bkt] = bkt instanceof MicroCapturer ? bkt : new MicroCapturer(str, bracketL, bracketR),
-		this[$sep] = sep,
+		this[$gc] = gc = gc instanceof GlobalCapturer ? gc : new GlobalCapturer(str),
 		
-		this.updateChrs(esc, true);
+		this[$enc] = new MicroEnclosure(str, gc.enc, gc.esc),
+		this[$cap] = new MicroCapturer(str, gc.L, gc.R, gc.esc),
+		this[$bkt] = new MicroCapturer(str, bracketL || bktL, bracketR || bktR, gc.esc),
+		this[$sep] = sep || _sep;
 		
 	}
 	
-	exc() {
+	// CO = MicroCoParser
+	createCO(coOrMp = this, str) {
 		
+		if (!(coOrMp instanceof MicroParser)) throw new TypeError();
 		
+		const	{ cache: { co } } = this, l = co.length, { L: bracketL, R: bracketR } = mp[MicroParser.$bkt],
+				gc = this.createGCFromMP(coOrMp, str);
+		let i, c;
+		
+		i = -1;
+		while (++i < l && !((c = co[i]).gc === gc && c.bracketL === bracketL && c.bracketR === bracketR));
+		
+		return i === l ?	(co[i] = { $: new MicroCoParser(str, gc, bracketL, bracketR), gc, bracketL, bracketR }).$ :
+								(arguments.length > 1 ? (c.$.str = str, c.$) : c.$);
+		
+	}
+	
+	// このメソッドは createCO, createMP 内の重複する処理をメソッド化している。
+	// GC = GlobalCapturer
+	createGCFromMP(mp, str) {
+		
+		if (!(mp instanceof MicroParser)) throw new TypeError();
+		
+		const { cache: { gc } } = this, l = gc.length;
+		let i;
+		
+		i = -1;
+		while (++i < l && gc[i].mp !== gc);
+		
+		if (i === l) {
+			
+			const { $bkt, $gc, $sep } = MicroParser, { L, R, enc, esc } = mp[$gc];
+			
+			return (gc[i] = { $: new GlobalCapturer(str, L, R, enc, esc), mp }).$;
+			
+		} else return arguments.length > 1 ? (gc[i].str = str, gc[i].$) : gc[i].$;
+		
+	}
+	
+	// MP = MicroParser
+	createMP(mp = this, str) {
+		
+		if (!(mp instanceof MicroParser)) throw new TypeError();
+		
+		const	{ $bkt, $sep } = MicroParser,
+				{ cache: { mp: cached } } = this,
+				l = cached.length,
+				{ L: bracketL, R: bracketR } = mp[$bkt],
+				gc = this.createGCFromMP(mp, str),
+				sep = mp[$sep];
+		let i, m;
+		
+		i = -1;
+		while	(
+					++i < l &&
+					!((m = cached[i]).gc === gc && m.bracketL === bracketL && m.bracketR === bracketR && m.sep === sep)
+				);
+		
+		return	i === l ?
+						(
+							cached[i] =
+								{ $: new MicroParser(str, gc, bracketL, bracketR, mp[$sep]), gc, bracketL, bracketR, sep }
+						).$ :
+						arguments.length > 1 ? (m.$.str = str, m.$) : m.$;
+		
+	}
+	
+	exc(str) {
+		
+		const { cache: { executed } } = this;
+		
+		return	executed?.[str = arguments.length ? (this.str = str) : (str = this.str)] ??
+						(executed[str] = this[MicroParser.$exc]());
 		
 	}
 	
 	split() {
 		
-		const { $bkt, $cap, $enc, $sep, $str, getIncluded } = MicroParser,
+		const { $bkt, $cap, $enc, $gc, $sep, $str, getExcluded } = MicroParser,
+				sep = this[$sep],
 				sepIndices =	getExcluded(
-										this.escape(this[$sep]),
-										[ ...this[$bkt].capture(), ...this[$cap].capture(), ...this[$enc].enclose() ]
+										this[$gc].escape(sep, undefined, undefined, true),
+										...this[$enc].enclose(),
+										...this[$cap].capture(undefined, true),
+										...this[$bkt].capture(undefined, true)
 									),
 				l = sepIndices.length,
 				str = this[$str],
 				splitted = [];
-		let i,i0, indexStart;
+		let i,i0, indexStart, sepIdx,lastSepIdx;
 		
 		i = i0 = -1, indexStart = 0;
-		while (++i < l)	splitted[++i0] = str.slice(indexStart, sepIndices[i].end).trim(),
-								indexStart = sepIndices[i].end + 1;
+		while (++i < l)	'l' in (sepIdx = sepIndices[i]) ?
+									(
+										splitted[++i0] = str.slice(indexStart, (sepIdx = sepIndices[i].l.chrIndex)).trim(),
+										splitted[++i0] = str.slice(sepIdx, (sepIdx = sepIndices[i].r).end).trim()
+									) :
+									(splitted[++i0] = str.slice(indexStart, (sepIdx = sepIndices[i]).chrIndex).trim()),
+								indexStart = sepIdx.end;
+		splitted[++i0] = str.slice(indexStart);
 		
 		return splitted;
 		
 	}
 	
+	parse() {
+		
+		const parsed = this[MicroParser.$gc].exc(), l = parsed.length;
+		let i, p;
+		
+		i = -1;
+		while (++i < l) typeof (p = parsed[i]) === 'object' && (parsed[i] = this.createMP(this, ''+p).exc());
+		
+		return parsed;
+		
+	}
+	
+	// このメソッドを通じて各値を変更した場合、例えば引数に現在使われてる値と同じ値を指定してもキャッシュの初期化が発生するように、
+	// 引数の指定がキャッシュの初期化を引き起こすトリガーになっており、厳密に値の変化に追従しない点に注意が必要。
+	update(gc, bracketL, bracketR, esc, disablesStructure) {
+		
+		const { $bkt, $gc } = MicroParser, { cache: { co, mp } } = this;
+		let i,l, cached, structures;
+		
+		if (gc instanceof GlobalCapturer && gc !== this[$gc]) {
+			
+			this[$gc] = gc;
+			
+			const	{ $bkt, $cap, $enc } = MicroParser,
+					{ L, R, enc: E, esc } = gc,
+					bkt = this[$bkt],
+					cap = this[$cap],
+					enc = this[$enc],
+					{ str } = this;
+			
+			enc instanceof MicroEnclosure && (enc.enc = E, enc.esc = esc),
+			cap instanceof MicroCapturer && (cap.L = L, cap.R = R, cap.esc = esc),
+			bkt instanceof MicroCapturer && (bkt.esc = esc),
+			
+			structures = !disablesStructure;
+			
+		}
+		
+		if (bracketL || bracketR) {
+			
+			const bkt = this[$bkt];
+			
+			bracketL && (bkt.L = bracketL), bracketR && (bkt.R = bracketR),
+			
+			structures ||= !disablesStructure;
+			
+		}
+		
+		if (esc) this.updateEsc(esc, true), structures ||= !disablesStructure;
+		
+		i = -1, l = co.length;
+		while (++i < l) (cached = co[i].$) === this && (cached.update(...arguments), structures ||= !disablesStructure);
+		i = -1, l = mp.length;
+		while (++i < l) (cached = mp[i].$) === this && (cached.update(...arguments), structures ||= !disablesStructure);
+		
+		structures && this.structureCache();
+		
+	}
 	updateEsc(esc, disablesStructuring) {
 		
-		const { $bkt, $cap, $enc, $esc } = MicroParser;
+		const gc = this[MicroParser.$gc];
 		
-		this[$esc] = this[$enc].esc = this[$cap].esc = this[$bkt].esc = esc,
-		
-		disablesStructuring || this.structureCache();
+		if (esc !== gc.esc) {
+			
+			const { $bkt, $cap, $enc } = MicroParser, { cache: { co, gc, mp } } = this;
+			let i,l, cached;
+			
+			this[$enc].esc = this[$cap].esc = this[$bkt].esc = gc.esc = esc,
+			
+			i = -1, l = co.length;
+			while (++i < l)
+				(cached = co[i].$) === this && (cached.updateEsc(...arguments), structures ||= !disablesStructure);
+			i = -1, l = mp.length;
+			while (++i < l)
+				(cached = mp[i].$) === this && (cached.updateEsc(...arguments), structures ||= !disablesStructure);
+			
+			disablesStructuring || this.structureCache();
+			
+		}
 		
 	}
 	updateStr(str) {
 		
-		const { $str } = MicroCore, { $bkt, $cap, $enc } = MicroParser;
+		const { $str } = MicroCore, { $bkt, $cap, $enc, $gc } = MicroParser;
 		
-		this[$str] = this[$enc].str = this[$cap].str = this[$bkt].str = str,
+		this[$str] = str,
+		this[$enc] && (this[$enc].str = str),
+		this[$cap] && (this[$cap].str = str),
+		this[$bkt] && (this[$bkt].str = str),
+		this[$gc] && (this[$gc].str = str),
 		
 		this.structureCache();
 		
 	}
 	
-	get bkt(v) {
+	get bracketL() {
+		
+		return this[MicroParser.$bkt].L;
+		
+	}
+	set bracketL(v) {
+		
+		this.update(undefined, v, undefined);
+		
+	}
+	get bracketR() {
+		
+		return this[MicroParser.$bkt].R;
+		
+	}
+	set bracketR(v) {
+		
+		this.update(undefined, undefined, v);
+		
+	}
+	get bkt() {
 		
 		return this[MicroParser.$bkt];
 		
 	}
 	set bkt(v) {
 		
-		const { $esc, $bkt } = MicroParser, bkt = this[$bkt];
-		
-		v !== bkt && v instanceof MicroCapturer && (this.structureCache(), (this[$bkt] = bkt).esc = this[$esc]);
+		//const { $bkt, $gc } = MicroParser, bkt = this[$bkt];
+		//
+		//v !== bkt && v instanceof MicroCapturer && (this.structureCache(), (this[$bkt] = bkt).esc = this[$gc].esc);
 		
 	}
-	get cap(v) {
+	get cap() {
 		
 		return this[MicroParser.$cap];
 		
 	}
 	set cap(v) {
 		
-		const { $esc, $cap } = MicroParser, cap = this[$cap];
-		
-		v !== cap && v instanceof MicroCapturer && (this.structureCache(), (this[$cap] = cap).esc = this[$esc]);
+		//const { $cap, $gc } = MicroParser, cap = this[$cap];
+		//
+		//v !== cap && v instanceof MicroCapturer && (this.structureCache(), (this[$cap] = cap).esc = this[$gc].esc);
 		
 	}
-	get enc(v) {
+	//get co() {
+	//	
+	//	return this[MicroParser.$co];
+	//	
+	//}
+	//set co(v) {
+	//	
+	//	const { $esc, $co } = MicroParser, co = this[$co];
+	//	
+	//	v !== co && v instanceof MicroCoParser && (this.structureCache(), (this[$co] = co).esc = this[$esc]);
+	//	
+	//}
+	get enc() {
 		
 		return this[MicroParser.$enc];
 		
 	}
 	set enc(v) {
 		
-		const { $esc, $enc } = MicroParser, enc = this[$enc];
-		
-		v !== enc && v instanceof MicroEnclosure && (this.structureCache(), (this[$enc] = enc).esc = this[esc]);
+		//const { $enc, $gc } = MicroParser, enc = this[$enc];
+		//
+		//v !== enc && v instanceof MicroEnclosure && (this.structureCache(), (this[$enc] = enc).esc = this[$gc].esc);
 		
 	}
-	get esc(v) {
+	get esc() {
 		
-		return this[MicroParser.$esc];
+		return this[MicroParser.$gc].esc;
 		
 	}
 	set esc(v) {
 		
-		v === this[MicroParser.$esc] || this.updateEsc(v);
+		this.updateEsc(v);
 		
 	}
-	get sep(v) {
+	get gc() {
+		
+		return this[MicroParser.$gc];
+		
+	}
+	set gc(v) {
+		
+		this.update(v);
+		
+	}
+	//get mp() {
+	//	
+	//	return this[MicroParser.$mp];
+	//	
+	//}
+	//set mp(v) {
+	//	
+	//	const { $esc, $mp } = MicroParser, mp = this[$mp];
+	//	
+	//	v !== mp && v instanceof MicroParser && (this.structureCache(), (this[$mp] = mp).esc = this[$esc]);
+	//	
+	//}
+	get sep() {
 		
 		return this[MicroParser.$sep];
 		
@@ -484,6 +1000,11 @@ class MicroParser extends MicroCore {
 		
 	}
 	
+	get str() {
+		
+		return this[MicroCore.$str];
+		
+	}
 	set str(v) {
 		
 		v === this[MicroCore.$str] || this.updateStr(v);
@@ -491,13 +1012,119 @@ class MicroParser extends MicroCore {
 	}
 	
 }
+MicroParser.prototype[MicroParser.$exc] = function () {
+	
+	const	{ isArray } = Array,
+			{ bkt: { L: bktL, R: bktR }, cap: { L: capL, R: capR }, esc } = this,
+			bktLL = bktL.length, bktRL = bktR.length,
+			capLL = capL.length, capRL = capR.length,
+			params = this.split(),
+			executed = [];
+	let i,l, p,p0, ei, labeled, args;
+	
+	i = ei = -1, l = params.length;
+	while (++i < l) {
+		
+		//if ((p = params[i]).slice(0, capLL) === capL && p.slice(-capRL) === capR) {
+		//	
+		//	params[i] =	this.createMP(this, p.slice(capLL, -capRL)).exc();
+		//	
+		//} else if (p) {
+		//	
+		//	params[i] = p;
+		//	
+		//} else params.splice(i--, 1), --l;
+		
+		if ((p = params[i]).slice(0, bktLL) === bktL && p.slice(-bktRL) === bktR) {
+			
+			args = this.createCO(this, p.slice(bktL.length, -bktR.length)).exc(),
+			labeled ? (labeled.args = args, labeled = null) : (executed[++ei] = { args });
+			
+		} else if (p.slice(0, capLL) === capL && p.slice(-capRL) === capR) {
+			
+			labeled = null,
+			executed[++ei] = this.createMP(this, p.slice(capLL, -capRL)).exc();
+			
+		} else if (p) {
+			
+			executed[++ei] = labeled = { label: p };
+			
+		}
+		
+	}
+	
+	return executed;
+	
+};
 class MicroCoParser extends MicroParser {
 	
-	this.separator = ',';
+	static separator = ',';
 	
 	constructor() {
 		
 		super(...arguments);
+		
+	}
+	
+	[MicroParser.$exc]() {
+		
+		const	{ isNaN } = Number,
+				{ bkt: { L: bktL, R: bktR }, cap: { L: capL, R: capR }, enc: { enc } } = this,
+				bktLL = bktL.length, bktRL = bktR.length,
+				capLL = capL.length, capRL = capR.length,
+				encLL = enc.length,
+				params = this.split(), l = params.length;
+		let i,v, p;
+		
+		i = -1;
+		while (++i < l) {
+			
+			if ((p = params[i]).slice(0, bktLL) === bktL && p.slice(-bktR.length) === bktR) {
+				
+				const { co } = this;
+				
+				params[i] =	(co instanceof MicroCoParser ? co : (this.co = new MicroCoParser(undefined, esc))).
+									exc(p.slice(bktL.length, -bktR.length));
+				
+			} else if (p.slice(0, capLL) === capL && p.slice(-capRL) === capR) {
+				
+				const { mp } = this;
+				
+				params[i] =	(mp instanceof MicroParser ? mp : (this.mp = new MicroParser(undefined, esc))).
+									exc(p.slice(capL.length, -capR.length));
+				
+			} else if (p.slice(0, encLL) === enc && p.slice(-encLL) === enc) {
+				
+				params[i] = p.slice(encLL, -encLL);
+				
+			} else if (p) {
+				
+				switch (p) {
+					
+					case 'true': case 'false':
+					params[i] = p === 'true';
+					break;
+					
+					case 'null':
+					params[i] = null;
+					break;
+					
+					case 'undefined':
+					params[i] = undefined;
+					break;
+					
+					default:
+					//if (isNaN(v = Number(p))) throw new TypeError();
+					//params[i] = v;
+					params[i] = isNaN(v = Number(p)) ? new TypeError() : v;
+					
+				}
+				
+			} else params.splice(i--, 1), --l;
+			
+		}
+		
+		return params;
 		
 	}
 	
@@ -907,140 +1534,6 @@ class _MicroParser {
 		}
 		
 		this[MicroParser.$str] = v;
-		
-	}
-	
-}
-class GlobalCapturer extends MicroEscaper {
-	
-	static L = '{';
-	static R = '}';
-	static enc = '"';
-	
-	constructor(str) {
-		
-		super(str);
-		
-	}
-	
-	// 現状の仕様は、ブロックの左右両端は最短一致で境界を定める。
-	// 例えば a{b}c}d だと、ブロックは {b}c} ではなく {b} になる。
-	// この時、c} は単なる文字列として扱いシンタックスエラーにならない。
-	// 一方、 abc}c}d もシンタックスエラーにはならず、構文が存在しない単なる文字列として認識される。
-	// こうした仕様は実装後に判明した動作で、実際のところ想定していたものではないが、
-	// ブロックの境界として意図していない { や } をエスケープせずに使えると言う点で合理的ではあるので現状では許容している。
-	
-	exc() {
-		
-		const { constructor: { L }, str } = this, lIds = this.escape(L), lIdsLength = lIds.length;
-		
-		if (!lIdsLength) return str;
-		
-		const { constructor: { R } } = this, rIds = this.escape(R), rIdsLength = rIds.length;
-		
-		if (!rIdsLength) return str;
-		
-		const	{ constructor: { enc } } = this,
-				encIndices = this.escape(enc, lIds[0].end, rIds[rIdsLength - 1].start),
-				encIndicesLength = encIndices.length,
-				sealedLIndices = [],
-				sealedRIndices = [],
-				skippedLIndices = [],
-				skippedRIndices = [],
-				parsed = [];
-		let i,l,i0,l0,i1,i2, sldLIdsI,sldRIdsI,skpLIdsI,skpRIdsI, enci, lIdx,lIdx0,lIdx0End,rIdx, pi, result;
-		
-		// todo: 出力前のエスケープ文字の処理。
-		
-		i = sldLIdsI = sldRIdsI = skpLIdsI = skpRIdsI = pi = -1, parsed[++pi] = enci = 0;
-		while (++i < lIdsLength) {
-			
-			i0 = -1, l0 = sldLIdsI + 1;
-			while (++i0 < l0 && sealedLIndices[i0] !== i);
-			if (i0 < l0) continue;
-			
-			i0 = -1, lIdx = lIds[i], lIdx0 = undefined;
-			while (++i0 < rIdsLength) {
-				
-				i1 = -1, l0 = sldRIdsI + 1;
-				while (++i1 < l0 && sealedRIndices[i1] !== i0);
-				if (i1 < l0) continue;
-				
-				rIdx = rIds[i0];
-				if	(!encIndicesLength || enci <= encIndicesLength || rIdx.end < encIndices[enci].end) {
-					
-					i1 = lIdsLength;
-					while (--i1 > i - 1) {
-						
-						if	(
-								(lIdx0 = lIds[i1]).end < rIdx.end &&
-								sealedLIndices.indexOf(i1) === -1
-							)
-						{
-							
-							if (encIndicesLength && enci < encIndicesLength + 1 && lIdx0 !== lIdx) {
-								
-								i2 = enci, lIdx0End = lIdx0.end;
-								while ((i2 -= 2) > -1 && (lIdx0End < encIndices[i2].end || lIdx0End > encIndices[i2 + 1].end));
-								
-								if (i2 > -1) {
-									
-									sealedLIndices[++sldLIdsI] = i1;
-									continue;
-									
-								}
-								
-							}
-							
-							if (lIdx0 === lIdx) {
-								
-								parsed[++pi] = lIdx.end,
-								parsed[++pi] = str.slice(lIdx.end + 1, rIdx.end),
-								parsed[++pi] = rIdx.end + 1,
-								
-								sealedLIndices[++sldLIdsI] = i,
-								sealedRIndices[++sldRIdsI] = i0;
-								
-							} else {
-								
-								sealedLIndices[++sldLIdsI] = i1,
-								sealedRIndices[++sldRIdsI] = i0;
-								
-							}
-							
-							break;
-							
-						}
-						
-					}
-					
-				} else {
-					
-					rIdx.end > encIndices[enci + 1].end ? (enci += 2, --i0) : (sealedRIndices[++sldRIdsI] = i0);
-					
-					continue;
-					
-				}
-				
-				if (lIdx0 === lIdx && lIdx0.end < rIdx.end) break;
-				
-				// 上記ブロックの条件を満たさない時は、現在の { 中でネストしている { で、現在の } とペアになっている。
-				// または現在の } が余分の } である場合、現在の { は現在の } よりも後方の } とペアになる可能性がある。
-				// この時、現在の { は現在の } よりも後方に存在している。
-				// これらのいずれかの条件を満たす場合は、現在の } から次の } に移るためにループを進める。
-				
-			}
-			
-			if (lIdx0 !== lIdx) new SyntaxError(`Missing } in compound statement. { opened at column ${lIdx.end}.`);
-			
-		}
-		
-		parsed[++pi] = str.length;
-		
-		i = -2, l = pi + 1, result = '';
-		while ((i += 2) < l) result += typeof parsed[i] === 'string' ? (--i, '') : str.slice(parsed[i], parsed[i + 1]);
-		hi(str, parsed);
-		return result;
 		
 	}
 	
