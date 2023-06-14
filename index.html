@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ja">
+	
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>GPX Stringify</title>
+		<link rel="stylesheet" href="default.css">
+		<link id="gpx-stringify-css" rel="stylesheet" href="gpx-stringify.css" disabled>
+		<script>const hi = console.log.bind(console, '📍');</script>
+		<script src="GPXParser.js"></script>
+		<script src="micro-parser.js"></script>
+		<script src="gpx-placeholder.js"></script>
+		<script type="module" src="html-gpx-stringify-element.js"></script>
+	</head>
+	
+	<body>
+		
+		<gpx-stringify template="gpx-stringify" shadow-css="#gpx-stringify-css" preset='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ {elevation("m","max") round-f}m ⏱ {duration("h")}:{duration("m") pad}:{duration("s") pad} ⌚️ {points("h", "0%", "date") pad}:{points("m", "0%", "date") pad}:{points("s", "0%", "date") pad}-{points("h", "100%", "date") pad}:{points("m", "100%", "date") pad}:{points("s", "100%", "date") pad}'></gpx-stringify>
+		
+		<template id="gpx-stringify">
+			<div id="root">
+				
+				<input id="output-toggle" class="toggle" type="checkbox">
+				<div class="wrapper">
+					<label class="toggle" for="output-toggle">📤 Output</label>
+					<div id="output" class="container">
+						<div class="output node">
+							<textarea id="output-area"></textarea>
+						</div>
+						<div class="controls">
+							<copy-element class="copy custom-button" source="#output-area">Copy</copy-element>
+							<button class="tweet custom-button" type="button">Tweet</button>
+							<button class="update custom-button" type="button">Update</button>
+							<clear-element class="clear custom-button" source="#output-area">Clear</clear-element>
+						</div>
+					</div>
+				</div>
+				
+				<input id="input-toggle" class="toggle" type="checkbox" checked>
+				<div class="wrapper">
+					<label class="toggle" for="input-toggle">📥 Input GPX</label>
+					<div id="input" class="container">
+						<div class="editor node">
+							<textarea id="input-area"></textarea>
+						</div>
+						<div class="controls">
+							<copy-element class="copy custom-button" source="#input-area">Copy</copy-element>
+							<button id="input-output-button" type="button" class="custom-button">Output</button>
+							<button id="input-view-spec-button" type="button" class="custom-button">View Spec</button>
+							<clear-element class="clear custom-button" source="#input-area">Clear</clear-element>
+						</div>
+					</div>
+				</div>
+				
+				<input id="edit-toggle" class="toggle" type="checkbox">
+				<div class="wrapper">
+					<label class="toggle" for="edit-toggle">✍️ Edit</label>
+					<div id="edit" class="container">
+						<div class="editor node">
+							<textarea id="edit-area"></textarea>
+						</div>
+						<div class="controls">
+							<copy-element class="copy custom-button" source="#edit-area">Copy</copy-element>
+							<button id="edit-output-button" type="button" class="custom-button">Output</button>
+							<clear-element class="clear custom-button" source="#edit-area">Clear</clear-element>
+						</div>
+					</div>
+				</div>
+				
+			</div>
+		</template>
+		
+	</body>
+	
+</html>

@@ -1,0 +1,137 @@
+@import "./common.css";
+
+:host {
+	
+	display: block;
+	height: 100%;
+	overflow: auto;
+	
+}
+
+#root {
+	
+	background: radial-gradient(farthest-corner at 30% 20%, transparent, rgba(0,0,0,.5)), rgba(104,104,104,1);
+	display: flex;
+	flex-direction: column;
+	min-height: 100%;
+	
+}
+
+.wrapper {
+	
+	--wrapper-padding: 1rem;
+	
+	border-bottom: 1px dotted rgba(240,240,240,1);
+	box-sizing: border-box;
+	display: flex;
+	flex: 0 0;
+	flex-direction: column;
+	padding: var(--wrapper-padding);
+	
+	transition: flex .2s ease 0s;
+	
+}
+input:checked + .wrapper {
+	
+	flex: 1 0;
+	
+}
+.wrapper:last-child {
+	
+	padding-bottom: var(--wrapper-padding);
+	
+}
+
+label.toggle {
+	
+	--fore-color: rgba(240,240,240,1);
+	
+	align-items: center;
+	display: flex;
+	color: var(--fore-color);
+	cursor: pointer;
+	flex: 0 1;
+	font: normal normal bold 180%/1 "Helvetica", "Arial", sans-serif;
+	margin: 0 auto;
+	margin-bottom: .5rem;
+	padding: .4rem;
+	text-shadow: 0 2px 0 rgba(0,0,0,1), 0 0px 1.2rem rgba(0,0,0,.8);
+	user-select: none;
+	width: fit-content;
+	
+}
+label.toggle::after {
+	
+	--size: .7rem;
+	
+	border: calc(var(--size) / 2) solid transparent;
+	border-right: calc(var(--size) / 2) solid var(--fore-color);
+	box-sizing: border-box;
+	content: "";
+	display: block;
+	height: var(--size);
+	margin-left: 1.1rem;
+	transform: translate(calc(var(--size) / -4),0);
+	transform-origin: center center;
+	width: var(--size);
+	
+	transition: transform .1s linear 0s;
+	
+}
+input:checked + .wrapper > label.toggle {
+	
+	--fore-color: rgba(255,255,255,1);
+	
+	text-shadow: 0 2px 0 rgba(0,0,0,1), 0 0px .4rem rgba(0,0,0,.6), 0 0px .8rem rgba(255,255,255,.7);
+	
+}
+input:checked + .wrapper > label.toggle::after {
+	
+	transform: rotate(-90deg) translate(calc(var(--size) / -4),0);
+	
+}
+input[type="checkbox"].toggle {
+	
+	display: none;
+	
+}
+
+.container {
+	
+	box-sizing: border-box;
+	display: flex;
+	flex: 1 0;
+	max-height: 0;
+	overflow: hidden;
+	
+}
+input:checked + .wrapper > .container {
+	
+	max-height: 100%;
+	
+}
+
+.node {
+	flex: 1 0;
+	padding: .6rem;
+}
+.controls {
+	
+	display: flex;
+	flex: 0 1 auto;
+	flex-direction: column;
+	margin: 0 0rem 0 .5rem;
+	
+}
+.controls .custom-button:first-child {
+	
+	margin-top: 0px;
+	
+}
+
+textarea {
+	
+	height: 100%;
+	width: 100%;
+	
+}
