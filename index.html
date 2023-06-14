@@ -16,7 +16,7 @@
 	
 	<body>
 		
-		<gpx-stringify template="gpx-stringify" shadow-css="#gpx-stringify-css" preset='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ {elevation("m","max") round-f}m ⏱ {duration("h")}:{duration("m") pad}:{duration("s") pad} ⌚️ {points("h", "0%", "date") pad}:{points("m", "0%", "date") pad}:{points("s", "0%", "date") pad}-{points("h", "100%", "date") pad}:{points("m", "100%", "date") pad}:{points("s", "100%", "date") pad}'></gpx-stringify>
+		<gpx-stringify template="gpx-stringify" shadow-css="#gpx-stringify-css" preset='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ {elevation("m","max") round-f}m ⏱ {duration("h")}:{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></gpx-stringify>
 		
 		<template id="gpx-stringify">
 			<div id="root">
