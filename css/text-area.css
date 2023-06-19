@@ -1,0 +1,48 @@
+@import "./common.css";
+
+:host {
+	
+	display: block;
+	width: 100%;
+	
+}
+
+#root {
+	
+	display: flex;
+	flex-direction: column-reverse;
+	height: 100%;
+	
+}
+
+#textarea-node {
+	
+	box-sizing: border-box;
+	flex: 1 0;
+	height: 100%;
+	padding: 1rem;
+	
+}
+
+#textarea {
+	
+	height: 100%;
+	width: 100%;
+	
+}
+
+#textarea::placeholder {
+	
+	opacity: calc(2 / 3);
+	
+}
+
+#ctrl {
+	
+	align-items: center;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	margin-left: .5rem;
+	
+}

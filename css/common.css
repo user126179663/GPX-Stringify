@@ -22,14 +22,14 @@
 	border: none;
 	border-radius: .4rem;
 	box-shadow: 0 0 0px 1px rgba(120,120,120,1) inset, 0 1px 0px 1px rgba(40,40,40,1), 0 1px .3rem 1px rgba(40,40,40,1);
-	color: rgba(214,214,214,1);
+	color: rgba(224,224,224,1);
 	cursor: pointer;
 	display: inline-flex;
-	font: normal normal bold 1rem/1 "Helvetica", "Arial", sans-serif;
+	font: normal normal 1000 75%/1 "Helvetica", "Arial", sans-serif;
 	justify-content: center;
-	padding: .7rem;
+	padding: .5rem;
 	position: relative;
-	margin: .4rem;
+	margin: .3rem .2rem;
 	user-select: none;
 	text-shadow: 0 1px 0 rgba(0,0,0,1);
 	
@@ -48,7 +48,7 @@
 	box-shadow: 0 0 0px 1px rgba(120,120,120,1) inset, 0 1px 0px 1px rgba(40,40,40,1);
 	color: rgba(255,255,255,1);
 	text-shadow: none;
-	top: .2rem;
+	top: .15rem;
 	
 }
 
@@ -72,5 +72,29 @@ textarea:focus {
 	
 	background: rgba(232,232,232,1);
 	color: rgba(0,0,0,1);
+	
+}
+
+.select-node {
+	
+	background: rgba(255,255,255,calc(1/5));
+	border-radius: .3rem;
+	box-sizing: border-box;
+	padding: .1rem .3rem;
+	
+}
+.select-node > label {
+	
+	color: rgba(232,232,232,1);
+	font: normal normal bold 80%/1 "Helvetica", "Arial", sans-serif;
+	padding: 0 .5rem;
+	
+}
+.select-node > select {
+	
+	box-sizing: border-box;
+	height: 2rem;
+	margin-right: .4rem;
+	padding: 0rem .5rem;
 	
 }

@@ -2,23 +2,96 @@
 <html lang="ja">
 	
 	<head>
+		
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
-		<title>GPX Stringify</title>
-		<link rel="stylesheet" href="default.css">
-		<link id="gpx-stringify-css" rel="stylesheet" href="gpx-stringify.css" disabled>
-		<script>const hi = console.log.bind(console, '📍');</script>
-		<script src="GPXParser.js"></script>
-		<script src="micro-parser.js"></script>
-		<script src="gpx-placeholder.js"></script>
-		<script type="module" src="html-gpx-stringify-element.js"></script>
+		
+		<title>GPX Visualizer</title>
+		
+		<link rel="stylesheet" href="css/default.css">
+		
+		<link id="gpx-stringifier-css" rel="stylesheet" href="css/gpx-stringifier.css" disabled>
+		<link id="gpx-input-css" rel="stylesheet" href="css/gpx-input.css" disabled>
+		<link id="gpx-visualizer-css" rel="stylesheet" href="css/gpx-visualizer.css" disabled>
+		<link id="text-area-css" rel="stylesheet" href="css/text-area.css" disabled>
+		
+		<script src="js/utils.js"></script>
+		<script src="js/GPXParser.js"></script>
+		<script src="js/micro-parser.js"></script>
+		<script src="js/gpx-placeholder.js"></script>
+		<script type="module" src="js/html-gpx-element.js"></script>
+		<script src="js/dev.js"></script>
+		
 	</head>
 	
 	<body>
 		
-		<gpx-stringify template="gpx-stringify" shadow-css="#gpx-stringify-css" preset='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ {elevation("m","max") round-f}m ⏱ {duration("h")}:{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></gpx-stringify>
+		<gpx-input template="gpx-input" shadow-css="#gpx-input-css"></gpx-input>
 		
-		<template id="gpx-stringify">
+		<template id="gpx-visualizer">
+			<fieldset>
+				<slot name="ctrl"></slot>
+				<slot name="legend"></slot>
+				<slot name="visualizer"></slot>
+			</fieldset>
+		</template>
+		
+		<template id="text-area">
+			<div id="root">
+				<div id="textarea-node">
+					<textarea id="textarea"></textarea>
+				</div>
+				<div id="ctrl"><slot name="ctrl-before-copy"></slot><copy-element id="copy" class="copy custom-button" source="#textarea">Copy</copy-element><slot name="ctrl-before-clear"></slot><clear-element id="clear" class="clear custom-button" source="#textarea">Clear</clear-element><slot name="ctrl-after-clear"></slot></div>
+			</div>
+		</template>
+		
+		<template id="gpx-stringifier">
+			
+			<div id="root">
+				
+				<input id="output-toggle" class="toggle" type="checkbox">
+				<div class="wrapper">
+					<label class="toggle" for="output-toggle">📝 Output</label>
+					<div id="output-container" class="container">
+						<text-area id="output" template="text-area" shadow-css="#text-area-css"></text-area>
+					</div>
+				</div>
+				
+				<input id="edit-toggle" class="toggle" type="checkbox" checked>
+				<div class="wrapper">
+					<label class="toggle" for="edit-toggle">✍️ Edit</label>
+					<div id="edit-container" class="container">
+						<text-area id="edit" template="text-area" shadow-css="#text-area-css" value='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ {elevation("m","max") round-f}m 📈 {elevation("m", "pos") round-f}m ⏱ {duration("h")}:{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></text-area>
+					</div>
+				</div>
+				
+			</div>
+			
+		</template>
+		
+		<template id="gpx-input">
+			
+			<div id="root">
+				
+				<input id="input-toggle" class="toggle" type="checkbox" checked>
+				<div class="wrapper">
+					<label class="toggle" for="input-toggle">📥 Input GPX</label>
+					<div id="input-container" class="container">
+						<text-area id="input" template="text-area" shadow-css="#text-area-css" placeholder="GPX is a file format for tracking."></text-area>
+					</div>
+				</div>
+				
+				<input id="outputs-toggle" class="toggle" type="checkbox">
+				<div class="wrapper">
+					<label class="toggle" for="outputs-toggle">📤 Visualizers</label>
+					<div id="outputs-container" class="container"></div>
+				</div>
+				
+			</div>
+			
+		</template>
+		
+		<template id="-gpx-stringify">
 			<div id="root">
 				
 				<input id="output-toggle" class="toggle" type="checkbox">

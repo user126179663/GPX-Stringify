@@ -1,0 +1,63 @@
+@import "./custom-element.css";
+
+#root {
+	
+	flex-direction: row !important;
+	
+}
+
+.wrapper {
+	
+	border-bottom: none;
+	border-right: 1px dotted rgba(240,240,240,1);
+	flex-direction: row !important;
+	
+}
+.wrapper:first-of-type {
+	
+	padding-top: var(--wrapper-padding);
+	
+}
+
+.wrapper > label {
+	
+	writing-mode: vertical-rl;
+	
+}
+
+#outputs-container.container {
+	
+	box-sizing: border-box;
+	flex-direction: column;
+	padding-left: .5rem;
+	
+}
+#outputs-container.container > * {
+	
+	flex: 1 0 fit-content;
+	margin: .5rem 0;
+	
+}
+#outputs-container.container legend {
+
+	margin: 0 auto;
+	padding: 0 .5rem;
+	
+}
+
+
+label.toggle::after {
+	
+	border: calc(var(--size) / 2) solid transparent;
+	border-bottom: calc(var(--size) / 2) solid var(--fore-color);
+	margin-left: 0rem;
+	margin-top: .2rem;
+	transform: translate(calc(var(--size) / -3), 0);
+	
+}
+
+input:checked + .wrapper > label.toggle::after {
+	
+	transform: rotate(90deg) translate(calc(var(--size) / 3), 0);
+	
+}

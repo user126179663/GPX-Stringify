@@ -1,0 +1,29 @@
+@import "./custom-element.css";
+
+:host {
+	
+	position: relative;
+	
+}
+
+fieldset {
+	
+	border: 1px dotted rgba(255,255,255,1);
+	border-radius: .4rem;
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	padding: .3rem .5rem 0;
+	
+}
+fieldset > * {
+	flex: 0 1 auto;
+}
+
+fieldset > ::slotted(legend) {
+	
+	color: rgba(200,200,200,1);
+	font: normal normal bold 100%/1 "Helvetica", "Arial", sans-serif;
+	
+}

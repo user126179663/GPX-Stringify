@@ -1,366 +1,162 @@
-export class ElementShadow extends HTMLElement {
+import { default as ElementShadow } from './element-shadow.js';
+
+class HTMLTextAreaControllerElement extends ElementShadow {
 	
-	static tagName = 'element-shadow';
-	
-	static $bind = Symbol('ElementShadow.bind');
-	static $construct = Symbol('ElementShadow.construct');
-	static $forcesInit = Symbol('ElementShadow.forcesInit');
-	static $initialize = Symbol('ElementShadow.initialize');
-	static $mutated = Symbol('ElementShadow.mutated');
-	static $mutationObserver = Symbol('ElementShadow.mutationObserver');
-	static $observedAttributes = Symbol('ElementShadow.observedAttributes');
-	static $required = Symbol('ElementShadow.required');
-	static $requiredAll = Symbol('ElementShadow.requiredAll');
-	static $resizeObserver = Symbol('ElementShadow.resizeObserver');
-	static $resized = Symbol('ElementShadow.resized');
-	static $updateShadow = Symbol('ElementShadow.updateShadow');
-	
-	static attachShadowOption = { mode: 'open' };
-	
-	static assignedNodesOption = { flatten: true };
-	
-	static mutationInitOption = { childList: true, subtree: true };
-	
-	static get observedAttributes() {
-		
-		return this[ElementShadow.$observedAttributes];
-		
-	}
-	
-	static new(constructor = this, ...args) {
-		
-		const { $initialize } = ElementShadow, element = new constructor(...args);
-		
-		element[$initialize]?.();
-		
-		return element;
-		
-	}
-	static requireElements(required, all, target = document, optional) {
-		
-		const difference = {};
-		
-		if (
-			(target instanceof HTMLElement || target instanceof Document) &&
-			required &&
-			typeof required === 'object'
-		) {
-			
-			const	{ dataset, shadowRoot } = target,
-					warnings = optional && [],
-					keys = [ ...Object.keys(required), ...Object.getOwnPropertySymbols(required) ],
-					keysLength = keys.length;
-			let i,i0,i1,l1, k, current,last;
-			
-			i = i0 = -1;
-			while (++i < keysLength)
-				difference[k = keys[i]] =	(current = shadowRoot.querySelectorAll(required[k])).length &&
-														(all ? current : current[0]);
-			
-			i = i0 = -1;
-			while (++i < keysLength) {
-				
-				current = difference[k = keys[i]];
-				
-				if (
-					(last = target[k]) instanceof NodeList &&
-					current instanceof NodeList &&
-					(l1 = last.length) === difference[k]?.length
-				) {
-					
-					i1 = -1, current = difference[k];
-					while (++i1 < l1 && current[i1] === last[i1]);
-					difference[k] = i1 === l1 || current;
-					
-				} else difference[k] = last === current || current;
-				
-				if (current) (target[k] = current);
-					else if (optional)	warnings[++i0] = typeof k === 'symbol' ? Symbol.keyFor(k) : k;
-					else						throw new Error(`No element for "${required[k]}".`);
-				
-			}
-			
-			i0 === -1 || (dataset.elementShadowNoRequiredElements = warnings.join(' '));
-			
-		}
-		
-		return difference;
-		
-	}
-	
-	// https://stackoverflow.com/questions/54520554/custom-element-getrootnode-closest-function-crossing-multiple-parent-shadowd
-	static composeClosest(selector, scope) {
-		
-		return typeof scope?.closest === 'function' &&
-			(scope.closest(selector) || (scope = scope?.getRootNode?.()?.host) && this.composeClosest(selector, scope)) ||
-				null;
-		
-	}
-	static closestObject(object, scope) {
-		
-		let parent;
-		
-		parent = scope;
-		while (!(parent instanceof object) && (parent = parent.parentElement));
-		
-		return !parent && (scope = scope.getRootNode()?.host) ? ElementShadow.closestObject(object, scope) : scope;
-		
-	}
-	
-	static getRect(target) {
-		
-		if (target instanceof Element) {
-			
-			const rect = target.getBoundingClientRect(), v = {};
-			let k,v0;
-			
-			for (k in rect) typeof (v0 = rect[k]) === 'number' && (v[k] = rect[k] + 'px');
-			v['scroll-left'] = rect.left + scrollX + 'px', v['scroll-top'] = rect.top + scrollY + 'px';
-			
-			return v;
-			
-		}
-		
-	}
-	
-	static bindAll(handlers, thisArg, bound = thisArg || {}, ...args) {
-		
-		(thisArg && typeof thisArg === 'object') || (thisArg = bound);
-		
-		if (handlers && handlers.constructor === Object && thisArg && typeof thisArg === 'object') {
-			
-			const keys = [ ...Object.keys(handlers), ...Object.getOwnPropertySymbols(handlers) ], l = keys.length;
-			let i, handler, k;
-			
-			i = -1;
-			while (++i < l)
-				typeof (handler = handlers[k = keys[i]]) === 'function' && (bound[k] = handler.bind(thisArg, ...args));
-			
-		}
-		
-		return bound;
-		
-	}
-	
-	static setAC(target, key, handler, option = { once: true }) {
-		
-		(target[key] = new AbortController()).signal.addEventListener('abort', handler, option);
-		
-	}
-	
-	static uid4() {
-		
-		const UID4F = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
-		let i = -1, id = '', c;
-		
-		while (c = UID4F[++i]) id +=	c === 'x' ? Math.floor(Math.random() * 16).toString(16) :
-												c === 'y' ? (Math.floor(Math.random() * 4) + 8).toString(16) : c;
-		
-		return id;
-		
-	}
+	static tagName = 'text-area';
 	
 	constructor() {
 		
 		super();
 		
-		const	{
-					$bind,
-					$forcesInit,
-					$initialize,
-					$mutated,
-					$mutationObserver,
-					$resized,
-					$resizeObserver,
-					bindAll,
-					mutationInitOption
-				} = ElementShadow;
+		const { changedTextArea, textarea } = this;
 		
-		bindAll(this.constructor[$bind], this),
-		
-		this[$mutationObserver] = new MutationObserver(() => this[$mutated]()),
-		this[$resizeObserver] = new ResizeObserver(() => this[$resized]()),
-		
-		(this.constructor[$forcesInit] || this.isConnected) && (this[$initialize]?.());
+		textarea.addEventListener('change', changedTextArea);
 		
 	}
 	
-	async attributeChangedCallback(name, last, current) {
+	attributeChangedCallback(name, last, current) {
 		
-		const { $resized, $resizeObserver, $updateShadow } = ElementShadow
+		ElementShadow.prototype.attributeChangedCallback.apply(this, arguments);
 		
 		switch (name) {
 			
-			case 'shadow-css':
-			this.updateShadowCSS();
+			case 'placeholder':
+			hi(name,current);
+			this.textarea.placeholder = current;
+			
 			break;
 			
-			case 'template':
-			this[$updateShadow]();
-			break;
+			case 'value':
 			
-			case 'requires':
-			current && this.requireElements(current);
-			break;
+			if (last !== current) {
+				
+				const { textarea } = this;
+				
+				this.dispatchEvent(new CustomEvent('changed', { detail: { current: textarea.value = current, last } }));
+				
+			}
 			
-			case 'resize-observer':
-			this[$resizeObserver][(current === null ? 'un' : '') + 'observe'](this),
-			current === null || this[$resized]();
 			break;
 			
 		}
 		
 	}
 	
-	updateShadowCSS() {
+	get placeholder() {
 		
-		const { shadowRoot } = this;
-		
-		if (shadowRoot instanceof ShadowRoot) {
-			
-			const { links, shadowCSS } = this;
-			let i,l;
-			
-			if (l = shadowCSS.length) {
-				
-				i = -1;
-				while (++i < l) shadowCSS[i].remove();
-				shadowCSS.length = 0;
-				
-			}
-			
-			if (l = links.length) {
-				
-				i = -1;
-				while (++i < l) (shadowCSS[i] = links[i].cloneNode(false)).removeAttribute('disabled');
-				
-				shadowRoot.append(...shadowCSS);
-				
-			}
-			
-		}
+		return this.getAttribute('placeholder');
 		
 	}
-	requireElements(requires = this.requires) {
+	set placeholder(v) {
 		
-		const	{ $required, $requiredAll, requireElements } = ElementShadow,
-				{ constructor } = this,
-				required = requireElements(constructor[$required], false, this, !requires),
-				requiredAll = requireElements(constructor[$requiredAll], true, this, !requires);
-		let k,v;
-		
-		for (k in required) if ((v = required[k]) !== true) break;
-		
-		if (v === true) for (k in requiredAll) if ((v = requiredAll[k]) !== true) break;
-		
-		v === true ||
-			this.dispatchEvent(new CustomEvent('changed-required-elements', { detail: { required, requiredAll } }));
-		
+		this.setAttribute('placeholder', v);
 		
 	}
 	
-	composeClosest(selector) {
+	get value() {
 		
-		return ElementShadow.composeClosest(selector, this);
-		
-	}
-	closestObject(object) {
-		
-		return ElementShadow.closestObject(object, this);
+		return this.getAttribute('value');
 		
 	}
-	
-	get links() {
+	set value(v) {
 		
-		return document.querySelectorAll(this.getAttribute('shadow-css'));
-		
-	}
-	set links(v) {
-		
-		this.setAttribute('shadow-css', v);
-		
-	}
-	get requires() {
-		
-		return this.hasAttribute('requires');
-		
-	}
-	set requires(v) {
-		
-		return this.setAttribute('requires', v);
-		
-	}
-	get template() {
-		
-		return document.getElementById(this.getAttribute('template'));
-		
-	}
-	set template(v) {
-		
-		return this.setAttribute('template', v);
-		
-	}
-	get resizeObserver() {
-		
-		return this.hasAttribute('resize-observer');
-		
-	}
-	set resizeObserver(v) {
-		
-		return this.toggleAttribute('resize-observer', !!v);
+		this.setAttribute('value', v);
 		
 	}
 	
 }
-ElementShadow[ElementShadow.$observedAttributes] = [ 'shadow-css', 'requires', 'template', 'resize-observer' ],
-ElementShadow.prototype[ElementShadow.$mutated] = function () {
+HTMLTextAreaControllerElement[ElementShadow.$bind] = {
 	
-	this.requireElements();
-	
-},
-ElementShadow.prototype[ElementShadow.$resized] = function () {
-	
-	const	{ constructor: { getRect }, id } = this,
-			rect = getRect(this), prefix = '--rect-' + (id ? id + '-' : '');
-	let k;
-	
-	for (k in rect) this.style.setProperty(prefix + k, rect[k]);
+	changedTextArea({ target: { value } }) {
+		
+		this.value = value;
+		
+	}
 	
 },
-ElementShadow.prototype[ElementShadow.$updateShadow] = function () {
+HTMLTextAreaControllerElement[ElementShadow.$observedAttributes] =
+	[ ...ElementShadow[ElementShadow.$observedAttributes], 'placeholder', 'value' ],
+HTMLTextAreaControllerElement[ElementShadow.$required] = {
 	
-	const	{ $construct, $mutationObserver, attachShadowOption, mutationInitOption } = ElementShadow,
-			{ shadowRoot, template } = this,
-			shadow =	template?.content.cloneNode(true) ?? this[$construct]?.();
-	
-	(shadow || shadowRoot) &&
-		(
-			(this.shadowCSS ||= []).length = 0,
-			//coco
-			// この処理はコンストラクターの super() を経由して実行されるため、
-			// 以下のような DOM を操作する処理は、super() が終了していないため Operation Not Supported の原因になる。
-			// 遅延実行などの何かしらの対策が必要。
-			(shadowRoot || this.attachShadow(attachShadowOption)).replaceChildren(shadow),
-			shadow && this.updateShadowCSS(),
-			this[$mutationObserver].observe(this.shadowRoot, mutationInitOption)
-		)
+	clearElement: '#ctrl clear-element[source="#textarea"]#clear',
+	copyElement: '#ctrl copy-element[source="#textarea"]#copy',
+	ctrl: '#ctrl',
+	textarea: 'textarea#textarea',
 	
 },
-customElements.define(ElementShadow.tagName, ElementShadow);
+customElements.define(HTMLTextAreaControllerElement.tagName, HTMLTextAreaControllerElement);
 
-export class HTMLGPXStringifyElement extends ElementShadow {
+export class HTMLGPXInputElement extends ElementShadow {
 	
-	static tagName = 'gpx-stringify';
+	static tagName = 'gpx-input';
 	
-	static devices = [ 'Android', 'iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod' ];
+	static $update = Symbol('HTMLGPXInputElement.$update');
+	
+	static visualizers = [ [ 'Stringifier', 'stringifier', false, true ] ];
 	
 	constructor() {
 		
 		super();
 		
-		this.gpx = new GPXPlaceholder('', '', GPXPlaceholderExtensions),
+	}
+	
+	[ElementShadow.$updatedShadow]() {
 		
-		this.addEventListener('changed-required-elements', this.changedRequiredElements);
+		const	{
+					
+					changedInput,
+					clickedAddButton,
+					clickedViewSpecButton,
+					
+					inputArea,
+					
+				} = this,
+				addButton = this.addButton = document.createElement('button'),
+				selectorNode = document.createElement('div'),
+				selectorLabel = document.createElement('label'),
+				selector = this.selector = document.createElement('select'),
+				visualizers = this.visualizers ||= [ ...this.constructor.visualizers ],
+				visualizersLength = visualizers.length,
+				eventOption = { signal: (this.ac = new AbortController()).signal };
+		let i, option;
+		
+		addButton.id = 'stringify-button',
+		addButton.classList.add('custom-button'),
+		addButton.type = 'button',
+		addButton.textContent = 'Create',
+		addButton.addEventListener('click', clickedAddButton, eventOption),
+		
+		selectorNode.id = 'selector-node',
+		selectorNode.classList.add('select-node'),
+		selectorNode.slot = 'ctrl-before-copy',
+		selectorLabel.htmlFor = 'selector'
+		selectorLabel.textContent = 'Visualizer',
+		
+		i = -1, selector.id = 'selector';
+		while (++i < visualizersLength) selector.appendChild(new Option(...visualizers[i]));
+		
+		selectorNode.append(selectorLabel, selector, addButton),
+		
+		inputArea.appendChild(selectorNode),
+		
+		inputArea.addEventListener('changed', changedInput, eventOption);
+		
+	}
+	
+	createStringifier() {
+		
+		const { inputArea: { value } } = this, stringifier = document.createElement('gpx-stringifier');
+		
+		stringifier.links = '#gpx-stringifier-css',
+		stringifier.template = 'gpx-stringifier',
+		
+		stringifier.addEventListener	(
+												'updated-shadow',
+												() => stringifier[HTMLGPXInputElement.$update]?.(value),
+												{ once: true }
+											);
+		
+		return stringifier;
 		
 	}
 	
@@ -373,17 +169,14 @@ export class HTMLGPXStringifyElement extends ElementShadow {
 		
 	}
 	
-	get input() {
+	get value() {
 		
 		return this.inputArea.value;
 		
 	}
-	set input(v) {
+	set value(v) {
 		
-		const { gpx, inputArea } = this;
-		
-		//inputArea.value === v || (inputArea.value = v, inputArea.dispatchEvent(new Event('change')));
-		inputArea.value === v || gpx.setXml(inputArea.value = v);
+		this.inputArea.value = v;
 		
 	}
 	get edit() {
@@ -408,121 +201,430 @@ export class HTMLGPXStringifyElement extends ElementShadow {
 	}
 	
 }
-HTMLGPXStringifyElement[ElementShadow.$bind] = {
+HTMLGPXInputElement[ElementShadow.$bind] = {
 	
-	changedInput(event) {
+	changedInput({ detail }) {
 		
-		const { gpx, inputArea } = this;
+		const	{ current } = detail,
+				{ outputsContainer: { children } } = this,
+				childrenLength = children.length;
+		let i, child;
 		
-		gpx.setXml(inputArea.value);
-		//this.parse();
+		i = -1;
+		while (++i < childrenLength)
+			(child = children[i].visualizer) instanceof HTMLGPXElement && (child.source = current);
+		
+		this.dispatchEvent(new CustomEvent('changed', { detail }));
 		
 	},
-	changedEditArea(event) {
+	
+	clickedAddButton(event) {
 		
-		const { editArea, gpx } = this;
+		const	{ outputsContainer, outputsToggle, selector: { options, selectedIndex } } = this,
+				selected = options[selectedIndex];
+		let i,l, v, visualizer, legend, ctrl, deleteButton;
+		
+		switch (selected.value) {
+			
+			case 'stringifier':
+			v = this.createStringifier();
+			break;
+			
+		}
+		
+		i = -1, l = (Array.isArray(v) ? v : (v = [ v ])).length;
+		while (++i < l)	visualizer = document.createElement('gpx-visualizer'),
+								(legend = document.createElement('legend')).slot = 'legend',
+								legend.textContent = selected.textContent,
+								(ctrl = document.createElement('div')).slot = 'ctrl',
+								(deleteButton = document.createElement('button')).type = 'button',
+								deleteButton.textContent = '🗑',
+								deleteButton.addEventListener('click', () => visualizer.remove(), { once: true }),
+								ctrl.append(deleteButton),
+								v[i].slot = 'visualizer',
+								visualizer.append(legend, ctrl, v[i]),
+								(v[i] = visualizer).links = '#gpx-visualizer-css',
+								visualizer.template = 'gpx-visualizer';
+		
+		outputsContainer.prepend(...v), outputsToggle.checked = true;
+		
+	}
+	
+},
+HTMLGPXInputElement[ElementShadow.$required] = {
+	
+	inputArea: 'text-area#input',
+	
+	outputsContainer: '#outputs-container',
+	outputsToggle: 'input#outputs-toggle[type="checkbox"]'
+	
+};
+customElements.define(HTMLGPXInputElement.tagName, HTMLGPXInputElement);
+
+export class HTMLGPXVisualizerElement extends ElementShadow {
+	
+	static tagName = 'gpx-visualizer';
+	
+	constructor() {
+		
+		super();
+		
+	}
+	
+	get visualizer() {
+		
+		return this.visualizerSlot.assignedElements()[0];
+		
+	}
+	
+}
+HTMLGPXVisualizerElement[ElementShadow.$required] = {
+	
+	ctrlSlot: 'slot[name="ctrl"]',
+	fieldset: 'fieldset',
+	legendSlot: 'slot[name="legend"]',
+	visualizerSlot: 'slot[name="visualizer"]'
+	
+};
+customElements.define(HTMLGPXVisualizerElement.tagName, HTMLGPXVisualizerElement);
+
+export class HTMLGPXElement extends ElementShadow {
+	
+	static tagName = 'gpx-element';
+	
+	static $source = Symbol('HTMLGPXElement.source');
+	
+	static devices = [ 'Android', 'iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod' ];
+	
+	constructor() {
+		
+		super();
+		
+		this.gpx = null;
+		
+	}
+	
+	get source() {
+		
+		return this[HTMLGPXElement.$source];
+		
+	}
+	set source(v) {
+		
+		const { $source } = HTMLGPXElement;
+		
+		v === this[$source] || (this.gpx = new gpxParser()).parse(this[$source] = v);
+		
+	}
+	
+}
+customElements.define(HTMLGPXElement.tagName, HTMLGPXElement);
+
+export class HTMLGPXPlaceholderElement extends HTMLGPXElement {
+	
+	static tagName = 'gpx-placeholder';
+	
+	constructor() {
+		
+		super();
+		
+		this.gpx = new GPXPlaceholder('', '', GPXPlaceholderExtensions);
+		
+	}
+	
+	parse() {
+		
+		return this.gpx.parse();
+		
+	}
+	
+	set source(v) {
+		
+		const { $source } = HTMLGPXElement;
+		
+		v === this[$source] || this.gpx.setXml(this[$source] = v);
+		
+	}
+	
+}
+customElements.define(HTMLGPXPlaceholderElement.tagName, HTMLGPXPlaceholderElement);
+
+export class HTMLGPXStringifierElement extends HTMLGPXPlaceholderElement {
+	
+	static tagName = 'gpx-stringifier';
+	
+	constructor() {
+		
+		super();
+		
+	}
+	
+	[ElementShadow.$updatedShadow]() {
+		
+		this.ac?.abort?.();
+		
+		const	{
+					changedEditArea,
+					changedOutputArea,
+					clickedStringifyButton,
+					clickedTweetButton,
+					clickedUpdateButton,
+					clickedViewSpecButton,
+					editArea,
+					gpx,
+					outputArea
+				} = this,
+				eventOption = { signal: (this.ac = new AbortController()).signal },
+				tweetButton = document.createElement('button'),
+				updateButton = document.createElement('button'),
+				stringifyButton = document.createElement('button'),
+				viewSpecButton = document.createElement('button');
+		
+		editArea.addEventListener('changed', changedEditArea, eventOption),
+		outputArea.addEventListener('changed', changedOutputArea, eventOption),
+		
+		viewSpecButton.id = 'view-spec-button',
+		viewSpecButton.classList.add('custom-button'),
+		viewSpecButton.type = 'button',
+		viewSpecButton.slot = 'ctrl-before-copy',
+		viewSpecButton.textContent = 'View Spec',
+		viewSpecButton.addEventListener('click', clickedViewSpecButton, eventOption),
+		
+		tweetButton.classList.add('tweet', 'custom-button'),
+		tweetButton.type = 'button'
+		tweetButton.slot = 'ctrl-before-copy',
+		tweetButton.textContent = 'Tweet',
+		tweetButton.addEventListener('click', clickedTweetButton, eventOption),
+		
+		updateButton.classList.add('update', 'custom-button'),
+		updateButton.type = 'button'
+		updateButton.slot = 'ctrl-before-copy',
+		updateButton.textContent = 'Update',
+		updateButton.addEventListener('click', clickedUpdateButton, eventOption),
+		
+		outputArea.append(tweetButton, updateButton, viewSpecButton),
+		
+		stringifyButton.classList.add('stringifier', 'custom-button'),
+		stringifyButton.type = 'button'
+		stringifyButton.slot = 'ctrl-before-copy',
+		stringifyButton.textContent = 'Stringify',
+		stringifyButton.addEventListener('click', clickedStringifyButton, eventOption),
+		
+		editArea.append(stringifyButton),
 		
 		gpx.str = editArea.value;
-		//this.parse();
+		
+	}
+	
+	parse() {
+		
+		return this.outputArea.value = Object.getPrototypeOf(this.constructor.prototype).parse.call(this);
+		
+	}
+	
+	[HTMLGPXInputElement.$update](source) {
+		
+		this.source = source, this.parse();
+		
+	}
+	
+}
+HTMLGPXStringifierElement[ElementShadow.$bind] = {
+	
+	changedEditArea({ target }) {
+		
+		this.gpx.str = target.value;
 		
 	},
+	
 	changedOutputArea(event) {
 		
 		this.outputToggle.checked = true;
 		
 	},
 	
-	clickedOutputButton(event) {
+	clickedStringifierButton(event) {
 		
-		this.parse();
+		this.parse()
 		
 	},
-	clickedOutputTweetButton(event) {
+	
+	clickedTweetButton(event) {
 		
 		// https://stackoverflow.com/questions/62107827/window-open-blank-doesnt-open-new-tab-on-ios-only
 		
 		const openedWindow = open();
 		
-		openedWindow.location = `https://twitter.com/intent/tweet?text=${this.output}`,
+		openedWindow.location = `https://twitter.com/intent/tweet?text=${this.outputArea.value}`,
 		
-		HTMLGPXStringifyElement.devices.includes(navigator.platform) && openedWindow.close();
+		this.constructor.devices.includes(navigator.platform) && openedWindow.close();
+		
+	},
+	
+	clickedUpdateButton(event) {
+		
+		this.parse();
 		
 	},
 	
 	clickedViewSpecButton(event) {
 		
-		const { inputArea, gpx: { gpx } } = this;
+		const gpxInput = this.composeClosest('gpx-input');
 		
-		inputArea.value = '<!--\n' +
-									'\nExamples:\n\n' +
-									'  The name of this GPX file is "{name}.gpx".\n' +
-									`    = The name of this GPX file is "${gpx?.tracks?.[0]?.name}.gpx"\n` +
-									'  The total length of this track is {distance-total("km")}km\n' +
-									`    = The total length of this track is ${gpx?.tracks?.[0]?.['distance-total']?.get?.('km')}km\n` +
-									'  The max elevation in the track is {elevation("cm", "max")}cm\n' +
-									`    = The max elevation in the track is ${gpx?.tracks?.[0]?.elevation?.get?.('cm', 'max')}cm\n\n` +
-									JSON.stringify(this.gpx?.toJSON?.() ?? {}, null, '  ') +
-								'\n-->' +
-								inputArea.value;
-		
-	},
-	
-	changedRequiredElements() {
-		
-		this?.ac?.abort?.();
-		
-		const	{
-					changedOutputArea,
-					changedInput,
-					changedEditArea,
-					clickedOutputButton,
-					outputUpdateButton,
-					clickedOutputTweetButton,
-					clickedViewSpecButton,
-					
-					outputArea,
-					outputTweetButton,
-					inputArea,
-					editArea,
-					inputOutputButton,
-					editOutputButton,
-					inputViewSpecButton
-					
-				} = this,
-				{ signal } = (this.ac = new AbortController()).signal, eventOption = { signal };
-		
-		outputArea.addEventListener('change', changedOutputArea, eventOption),
-		inputArea.addEventListener('change', changedInput, eventOption),
-		editArea.addEventListener('change', changedEditArea, eventOption),
-		
-		inputOutputButton.addEventListener('click', clickedOutputButton),
-		editOutputButton.addEventListener('click', clickedOutputButton),
-		
-		inputViewSpecButton.addEventListener('click', clickedViewSpecButton),
-		
-		outputUpdateButton.addEventListener('click', clickedOutputButton)
-		outputTweetButton.addEventListener('click', clickedOutputTweetButton),
-		
-		this.edit = this.getAttribute('preset');
+		if (gpxInput) {
+			
+			const { inputArea } = gpxInput, { gpx: { gpx } } = this;
+			
+			inputArea.value =
+				'<!--\n' +
+					'\nExamples:\n\n' +
+					'  The name of this GPX file is "{name}.gpx".\n' +
+					`    = The name of this GPX file is "${gpx?.tracks?.[0]?.name}.gpx"\n` +
+					'  The total length of this track is {distance-total("km")}km\n' +
+					`    = The total length of this track is ${gpx?.tracks?.[0]?.['distance-total']?.get?.('km')}km\n` +
+					'  The max elevation in the track is {elevation("cm", "max")}cm\n' +
+					`    = The max elevation in the track is ${gpx?.tracks?.[0]?.elevation?.get?.('cm', 'max')}cm\n\n` +
+					JSON.stringify(this.gpx?.toJSON?.() ?? {}, null, '  ') +
+				'\n-->' +
+				inputArea.value;
+			
+		}
 		
 	}
 	
 },
-HTMLGPXStringifyElement[ElementShadow.$required] = {
+HTMLGPXStringifierElement[ElementShadow.$required] = {
 	
-	editArea: '#edit-area',
-	editOutputButton: '#edit-output-button',
-	inputArea: '#input-area',
-	inputOutputButton: '#input-output-button',
-	inputViewSpecButton: '#input-view-spec-button',
-	outputArea: '#output-area',
-	outputNode: 'div#output',
-	outputToggle: '#output-toggle',
-	outputUpdateButton: '#output button.update',
-	outputTweetButton: '#output button.tweet',
+	editArea: 'text-area#edit',
+	outputArea: 'text-area#output',
+	outputToggle: 'input[type="checkbox"]#output-toggle'
 	
 };
-customElements.define(HTMLGPXStringifyElement.tagName, HTMLGPXStringifyElement);
+customElements.define(HTMLGPXStringifierElement.tagName, HTMLGPXStringifierElement);
+
+class HTMLDeleteElement extends HTMLElement {
+	
+	static tagName = 'delete-element';
+	static clickedEventOption = { once: true };
+	
+	constructor() {
+		
+		super();
+		
+		const { clickedEventOption } = HTMLDeleteElement;
+		
+		this.boundAC = [],
+		
+		this.addEventListener('click', this.clicked, clickedEventOption);
+		
+	}
+	
+	abort() {
+		
+		const { boundAC } = this, boundACLength = boundAC.length;
+		let i;
+		
+		i = -1;
+		while (++i < boundACLength) boundAC[i]?.abort?.();
+		
+		boundAC.length = 0;
+		
+	}
+	
+	bindAC(...acs) {
+		
+		const { boundAC } = this, acsLength = acs.length;
+		let i,i0, acs0;
+		
+		i = -1, i0 = boundAC.length - 1;
+		while (++i < acsLength)	(acs0 = acs[i]) instanceof AbortController ?
+											(boundAC[++i0] = acs0.signal) : acs0 instanceof AbortSignal && (boundAC[++i0] = acs0);
+		
+		
+	}
+	
+	deleteTargets() {
+		
+		const { targets } = this, targetsLLength = targets.length;
+		let i;
+		
+		i = -1;
+		while (++i < targetsLength) targets[i].remove();
+		
+		this.abort();
+		
+	}
+	
+	get targets() {
+		
+		return this.getRootNode().querySelectorAll(this.getAttribute('targets'));
+		
+	}
+	set targets(v) {
+		
+		this.setAttribute('targets', v);
+		
+	}
+	
+}
+HTMLDeleteElement[ElementShadow.$bind] = {
+	
+	clicked(event) {
+		
+		this.deleteTargets();
+		
+	}
+	
+},
+customElements.define(HTMLDeleteElement.tagName, HTMLDeleteElement);
+
+class Abort {
+	
+	static $aborting = Symbol('HTMLDeleteButton.$aborting');
+	static $ac = Symbol('HTMLDeleteButton.$ac');
+	static $available = Symbol('HTMLDeleteButton.$available');
+	
+	static abortedEventOption = { once: true };
+	
+	static aborting(rs, rj) {
+		
+		const { $ac, abortedEventOption } = HTMLDeleteButton, ac = this[$ac];
+		
+		ac.signal.addEventListener('abort', rs, abortedEventOption), this[$ac] = new AbortController(), ac.abort();
+		
+	}
+	
+	constructor() {
+		
+		const { $aborting, $ac, $available, abortedEventOption, aborting } = HTMLDeleteButton;
+		
+		this[$aborting] = aborting.bind(this),
+		
+		this[$ac] = new AbortController(),
+		
+		this[$available] = Promise.resolve();
+		
+	}
+	
+	abort() {
+		
+		const { $aborting, $available } = HTMLDeleteButton;
+		
+		return this[$available] = new Promise(this[$aborting]);
+		
+	}
+	
+	get signal() {
+		
+		const { $ac, $available } = HTMLDeleteButton, ac = this[$ac];
+		
+		this[$available];
+		
+		return ac instanceof AbortController && !ac.signal.aborted ? ac.signal : null;
+		
+	}
+	
+}
 
 class HTMLCopyElement extends HTMLElement {
 	
@@ -579,62 +681,3 @@ class HTMLClearElement extends HTMLCopyElement {
 	
 }
 customElements.define(HTMLClearElement.tagName, HTMLClearElement);
-//class CopyButton extends HTMLButtonElement {
-//	
-//	static tagName = 'copy-button';
-//	
-//	static new() {
-//		
-//		return document.createElement('button', { is: this.tagName });
-//		
-//	}
-//	static clicked(event) {
-//		
-//		const { source } = this, v = source.value ?? source.textContent;
-//		
-//		navigator.clipboard.writeText(v).then(() => this.dispatchEvent(new CustomEvent('copied', { detail: v })));
-//		
-//	}
-//	
-//	constructor() {
-//		
-//		super();
-//		
-//		this.addEventListener('click', this.clicked = this.constructor.clicked.bind(this));
-//		
-//	}
-//	
-//	get source() {
-//		
-//		return this.getRootNode().querySelector(this.getAttribute('source'));
-//		
-//	}
-//	set source(v) {
-//		
-//		this.setAttribute('source', v);
-//		
-//	}
-//	
-//}
-//customElements.define(CopyButton.tagName, CopyButton, { extends: 'button' });
-//
-//class ClearButton extends CopyButton {
-//	
-//	static tagName = 'clear-button';
-//	
-//	static clicked(event) {
-//		
-//		const { source } = this;
-//		
-//		'value' in source ? (source.value = '') : 'textContent' in source && (source.textContent = '');
-//		
-//	}
-//	
-//	constructor() {
-//		
-//		super();
-//		
-//	}
-//	
-//}
-//customElements.define(ClearButton.tagName, ClearButton, { extends: 'button' });

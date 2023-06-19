@@ -1,0 +1,1 @@
+const hi = console.log.bind(console, '📍');

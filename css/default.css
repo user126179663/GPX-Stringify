@@ -9,3 +9,9 @@ html {
 	background: black;
 	
 }
+
+body {
+	
+	background: radial-gradient(farthest-corner at 30% 20%, transparent, rgba(0,0,0,.5)), rgba(104,104,104,1);
+	
+}
