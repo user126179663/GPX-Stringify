@@ -14,6 +14,7 @@
 		<link id="gpx-input-css" rel="stylesheet" href="css/gpx-input.css" disabled>
 		<link id="gpx-visualizer-css" rel="stylesheet" href="css/gpx-visualizer.css" disabled>
 		<link id="text-area-css" rel="stylesheet" href="css/text-area.css" disabled>
+		<link id="toggle-css" rel="stylesheet" href="css/toggle-button.css" disabled>
 		
 		<script src="js/utils.js"></script>
 		<script src="js/GPXParser.js"></script>
@@ -41,7 +42,13 @@
 				<div id="textarea-node">
 					<textarea id="textarea"></textarea>
 				</div>
-				<div id="ctrl"><slot name="ctrl-before-copy"></slot><copy-element id="copy" class="copy custom-button" source="#textarea">Copy</copy-element><slot name="ctrl-before-clear"></slot><clear-element id="clear" class="clear custom-button" source="#textarea">Clear</clear-element><slot name="ctrl-after-clear"></slot></div>
+				<div id="ctrl">
+					<slot name="ctrl-before-copy"></slot>
+					<copy-element id="copy" class="copy custom-button" source="#textarea">Copy</copy-element>
+					<slot name="ctrl-before-clear"></slot>
+					<clear-element id="clear" class="clear custom-button" source="#textarea">Clear</clear-element>
+					<slot name="ctrl-after-clear"></slot>
+				</div>
 			</div>
 		</template>
 		
@@ -61,7 +68,7 @@
 				<div class="wrapper">
 					<label class="toggle" for="edit-toggle">✍️ Edit</label>
 					<div id="edit-container" class="container">
-						<text-area id="edit" template="text-area" shadow-css="#text-area-css" value='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ {elevation("m","max") round-f}m 📈 {elevation("m", "pos") round-f}m ⏱ {duration("h")}:{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></text-area>
+						<text-area id="edit" template="text-area" shadow-css="#text-area-css" value='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ [🚩 {elevation("m","max") round-f}m 📈 {elevation("m", "pos") round-f}m] ⏱ {duration("h") suffix(":") replace("0:","")}{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></text-area>
 					</div>
 				</div>
 				

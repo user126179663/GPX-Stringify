@@ -343,7 +343,7 @@ class MicroCapturer extends MicroBracket {
 	
 	static sort(a, b) {
 		
-		return a.l - b.l;
+		return a.l.chrIndex - b.l.chrIndex;
 		
 	}
 	
@@ -390,7 +390,6 @@ class MicroCapturer extends MicroBracket {
 		}
 		
 		//if (++i2 < rLength) throw SyntaxError(`Unexpected token: "${R}".`);
-		
 		return cache[cacheKey] = structures ? structure(indices) : indices.sort(sort);
 		
 	}
@@ -604,7 +603,7 @@ class MicroParser extends MicroCore {
 			
 			i0 = i, bIdx = (bound = bounds[i]).r.end;
 			while (++i0 < bl && bIdx > bounds[i0].l.end);
-			globals[++gi] = bound, i += i0 - 1;
+			globals[++gi] = bound, i += (i0 - i) - 1;
 			//indices.splice(i + 1, i0 = i0 - 1 - i), i -= i0, l -= i0;
 			
 		}
@@ -633,14 +632,14 @@ class MicroParser extends MicroCore {
 					bi > bl && (bi = bl);
 					//hi(bi,bl,bi0,excluded,bounds);
 					while (++bi0 < bi) excluded[++ei] = bounds[bi0];
-					--bi, excluded[++ei] = cIdx, ci = undefined;
+					--bi, --bi0, excluded[++ei] = cIdx, ci = undefined;
 					
 				} else ci = i;
 				
 			}
 			//hi(cl,bi,bi0,bl, bi0 === -1 || bi0 !== bi,excluded,chrIndices,bounds);
 			//if ((!cl && (bi = bl)) || bi0 === -1 || bi0-- !== bi) while (++bi0 < bi) excluded[++ei] = bounds[bi0];
-			if ((!cl && (bi = bl)) || bi0 === -1 || bi0-- !== bl) while (++bi0 < bl) excluded[++ei] = bounds[bi0];
+			if ((!cl && (bi = bl)) || bi0 === -1 || bi0 !== bl) while (++bi0 < bl) excluded[++ei] = bounds[bi0];
 			
 			if (ci-- !== undefined) while (++ci < cl) excluded[++ei] = chrIndices[ci];
 			
@@ -782,7 +781,7 @@ class MicroParser extends MicroCore {
 		splitted[++i0] = str.slice(indexStart).trim();
 		
 		return splitted;
-		
+
 	}
 	
 	// このメソッドを通じて各値を変更した場合、例えば引数に現在使われてる値と同じ値を指定してもキャッシュの初期化が発生するように、

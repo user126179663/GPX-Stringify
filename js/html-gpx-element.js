@@ -1,4 +1,5 @@
 import { default as ElementShadow } from './element-shadow.js';
+import { default as ToggleButton } from './toggle-button.js';
 
 class HTMLTextAreaControllerElement extends ElementShadow {
 	
@@ -105,12 +106,15 @@ export class HTMLGPXInputElement extends ElementShadow {
 		const	{
 					
 					changedInput,
+					changedInputFile,
 					clickedAddButton,
-					clickedViewSpecButton,
+					clickedInputFileButton,
 					
 					inputArea,
 					
 				} = this,
+				inputFile = this.inputFile = document.createElement('input'),
+				inputFileButton = document.createElement('button'),
 				addButton = this.addButton = document.createElement('button'),
 				selectorNode = document.createElement('div'),
 				selectorLabel = document.createElement('label'),
@@ -119,6 +123,19 @@ export class HTMLGPXInputElement extends ElementShadow {
 				visualizersLength = visualizers.length,
 				eventOption = { signal: (this.ac = new AbortController()).signal };
 		let i, option;
+		
+		inputFile.slot = 'ctrl-before-copy',
+		inputFile.id = 'input-file',
+		inputFile.type = 'file',
+		inputFile.accept = '.gpx, application/gpx+xml, application/octet-stream',
+		inputFile.addEventListener('change', changedInputFile, eventOption),
+		
+		inputFileButton.id = 'input-file-button',
+		inputFileButton.classList.add('custom-button'),
+		inputFileButton.slot = 'ctrl-before-copy',
+		inputFileButton.type = 'button',
+		inputFileButton.textContent = 'Load GPX',
+		inputFileButton.addEventListener('click', clickedInputFileButton, eventOption),
 		
 		addButton.id = 'stringify-button',
 		addButton.classList.add('custom-button'),
@@ -137,7 +154,7 @@ export class HTMLGPXInputElement extends ElementShadow {
 		
 		selectorNode.append(selectorLabel, selector, addButton),
 		
-		inputArea.appendChild(selectorNode),
+		inputArea.append(inputFile, selectorNode, inputFileButton),
 		
 		inputArea.addEventListener('changed', changedInput, eventOption);
 		
@@ -179,26 +196,6 @@ export class HTMLGPXInputElement extends ElementShadow {
 		this.inputArea.value = v;
 		
 	}
-	get edit() {
-		
-		return this.editArea.value;
-		
-	}
-	set edit(v) {
-		
-		this.editArea.value = this.gpx.str = v;
-		
-	}
-	get output() {
-		
-		return this.outputArea.value;
-		
-	}
-	set output(v) {
-		
-		this.outputArea.valu = v;
-		
-	}
 	
 }
 HTMLGPXInputElement[ElementShadow.$bind] = {
@@ -215,6 +212,12 @@ HTMLGPXInputElement[ElementShadow.$bind] = {
 			(child = children[i].visualizer) instanceof HTMLGPXElement && (child.source = current);
 		
 		this.dispatchEvent(new CustomEvent('changed', { detail }));
+		
+	},
+	
+	changedInputFile({ target: { files } }) {
+		
+		files[0].text().then(text => (this.value = text));
 		
 	},
 	
@@ -247,6 +250,12 @@ HTMLGPXInputElement[ElementShadow.$bind] = {
 								visualizer.template = 'gpx-visualizer';
 		
 		outputsContainer.prepend(...v), outputsToggle.checked = true;
+		
+	},
+	
+	clickedInputFileButton(event) {
+		
+		this.inputFile.click();
 		
 	}
 	
@@ -295,6 +304,8 @@ export class HTMLGPXElement extends ElementShadow {
 	static $source = Symbol('HTMLGPXElement.source');
 	
 	static devices = [ 'Android', 'iPad Simulator', 'iPhone Simulator', 'iPod Simulator', 'iPad', 'iPhone', 'iPod' ];
+	
+	static repogitoryUrl = 'https://user126179663.github.io/GPX-Visualizer/';
 	
 	constructor() {
 		
@@ -378,7 +389,8 @@ export class HTMLGPXStringifierElement extends HTMLGPXPlaceholderElement {
 				tweetButton = document.createElement('button'),
 				updateButton = document.createElement('button'),
 				stringifyButton = document.createElement('button'),
-				viewSpecButton = document.createElement('button');
+				viewSpecButton = document.createElement('button'),
+				creditToggle = this.creditToggle = document.createElement('toggle-button');
 		
 		editArea.addEventListener('changed', changedEditArea, eventOption),
 		outputArea.addEventListener('changed', changedOutputArea, eventOption),
@@ -402,7 +414,11 @@ export class HTMLGPXStringifierElement extends HTMLGPXPlaceholderElement {
 		updateButton.textContent = 'Update',
 		updateButton.addEventListener('click', clickedUpdateButton, eventOption),
 		
-		outputArea.append(tweetButton, updateButton, viewSpecButton),
+		creditToggle.toggleCSS = '#toggle-css',
+		creditToggle.title = 'Share the URL to this page.',
+		creditToggle.slot = 'ctrl-after-clear',
+		
+		outputArea.append(tweetButton, updateButton, viewSpecButton, creditToggle),
 		
 		stringifyButton.classList.add('stringifier', 'custom-button'),
 		stringifyButton.type = 'button'
@@ -453,11 +469,14 @@ HTMLGPXStringifierElement[ElementShadow.$bind] = {
 		
 		// https://stackoverflow.com/questions/62107827/window-open-blank-doesnt-open-new-tab-on-ios-only
 		
-		const openedWindow = open();
+		const { constructor: { devices, repogitoryUrl }, creditToggle: { activated }, outputArea: { value } } = this,
+				text = value + (activated ? '%0A%0A❤️': ''),
+				url = activated ? '&url=' + repogitoryUrl : '',
+				openedWindow = open();
 		
-		openedWindow.location = `https://twitter.com/intent/tweet?text=${this.outputArea.value}`,
+		openedWindow.location =	`https://twitter.com/intent/tweet?text=${text}${url}`,
 		
-		this.constructor.devices.includes(navigator.platform) && openedWindow.close();
+		devices.includes(navigator.platform) && openedWindow.close();
 		
 	},
 	

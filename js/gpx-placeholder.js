@@ -175,6 +175,22 @@ class GPXPlaceholderExtensions {
 		
 	}
 	
+	static prefix(str, prefix = '') {
+		
+		return prefix + str;
+		
+	}
+	static suffix(str, suffix = '') {
+		
+		return str + suffix;
+		
+	}
+	static replace(str, substr = '', newSubstr = '') {
+		
+		return str.replace(substr, newSubstr);
+		
+	}
+	
 	static fixed(str, digits = 2) {
 		
 		const { isNaN } = Number;

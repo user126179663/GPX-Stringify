@@ -1,0 +1,112 @@
+:host {
+	
+	align-items: center;
+	display: flex;
+	height: 1.5rem;
+	position: relative;
+	width: 2.25rem;
+	
+}
+
+label {
+	
+	/*
+		custom properties "--width" and "--height" are set when the <toggle-button> is resized.
+		Those indicates the bounding height for the custom element.
+	*/
+	
+	--background-color: rgba(200,200,200,1);
+	--background-color-disabled: rgba(144,144,144,1);
+	--border-radius: var(--height);
+	--border-width: .3rem;
+	--border-color: transparent;
+	
+	--switch-height: 100%;
+	--switch-width: calc(var(--height) - var(--border-width) * 1);
+	--switch-background-color: rgba(255,255,255,1);
+	--switch-background-color-disabled: rgba(200,200,200,1);
+	--switch-transition-duration: .2s;
+	--switch-transition-timing-function: ease;
+	--switch-transition-delay: 0s;
+	--switch-left-from: 0;
+	--switch-left-to: calc(98% - var(--switch-width));
+	--switch-top-from: 0;
+	--switch-top-to: 0;
+	
+	--activate-background-color: rgba(0,200,0,1);
+	--activate-background-color-disabled: rgba(80,80,80,1);
+	--activate-left-from: calc(var(--width) * -1 + var(--switch-width) * .5);
+	--activate-left-to: calc(100% - var(--width));
+	--activate-top-from: 0;
+	--activate-top-to: 0;
+	
+	--transition-direction: left;
+	
+	--transition: var(--transition-direction) var(--switch-transition-duration) var(--switch-transition-timing-function) var(--switch-transition-delay);
+	
+	background: var(--background-color);
+	border: var(--border-width) solid var(--border-color);
+	border-radius: var(--border-radius);
+	box-sizing: border-box;
+	display: block;
+	height: var(--height);
+	overflow: hidden;
+	position: static;
+	width: var(--width);
+	
+}
+:disabled + label {
+	
+	--background-color: var(--background-color-disabled);
+	--switch-background-color: var(--switch-background-color-disabled);
+	--activate-background-color: var(--activate-background-color-disabled);
+	
+}
+label::before, label::after {
+	
+	content: "";
+	display: block;
+	
+}
+label::before {
+	
+	/*background: var(--switch-background-color);*/
+	border-radius: var(--border-radius);
+	content: "❤️" !important;
+	color: red;
+	height: var(--switch-height);
+	font-size: 100%;
+	left: var(--switch-left-from);
+	margin-left: .1rem;
+	position: absolute;
+	width: var(--switch-width);
+	z-index: 2;
+	
+}
+:checked + ::before {
+	
+	left: var(--switch-left-to);
+	
+}
+label::after {
+	
+	background: var(--activate-background-color);
+	height: 100%;
+	left: var(--activate-left-from);
+	position: relative;
+	top: var(--activate-top-from);
+	width: 100%;
+	
+}
+:checked + ::after {
+	
+	left: var(--activate-left-to);
+	top: var(--activate-top-to);
+	
+}
+:not(:disabled) + label:not([data-toggle-button-mutated])::before,
+:not(:disabled) + label:not([data-toggle-button-mutated])::after {
+	
+	transition: var(--transition);
+	
+}

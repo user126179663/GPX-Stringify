@@ -166,3 +166,8 @@ textarea {
 	width: var(--size);
 	
 }
+
+toggle-button {
+	height: 1.5rem;
+	width: 2.25rem;
+}

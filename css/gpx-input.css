@@ -61,3 +61,9 @@ input:checked + .wrapper > label.toggle::after {
 	transform: rotate(90deg) translate(calc(var(--size) / 3), 0);
 	
 }
+
+#input-file {
+	
+	display: none;
+	
+}
