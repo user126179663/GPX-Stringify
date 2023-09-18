@@ -10,11 +10,14 @@
 		
 		<link rel="stylesheet" href="css/default.css">
 		
-		<link id="gpx-stringifier-css" rel="stylesheet" href="css/gpx-stringifier.css" disabled>
+		<link id="toggle-css" rel="stylesheet" href="css/toggle-button.css" disabled>
+		<link id="text-area-css" rel="stylesheet" href="css/text-area.css" disabled>
+		<link id="labeled-node-css" rel="stylesheet" href="css/labeled-node.css" disabled>
 		<link id="gpx-input-css" rel="stylesheet" href="css/gpx-input.css" disabled>
 		<link id="gpx-visualizer-css" rel="stylesheet" href="css/gpx-visualizer.css" disabled>
-		<link id="text-area-css" rel="stylesheet" href="css/text-area.css" disabled>
-		<link id="toggle-css" rel="stylesheet" href="css/toggle-button.css" disabled>
+		
+		<link id="gpx-dom-css" rel="stylesheet" href="css/gpx-dom.css" disabled>
+		<link id="gpx-stringifier-css" rel="stylesheet" href="css/gpx-stringifier.css" disabled>
 		
 		<script src="js/utils.js"></script>
 		<script src="js/GPXParser.js"></script>
@@ -28,6 +31,11 @@
 	<body>
 		
 		<gpx-input template="gpx-input" shadow-css="#gpx-input-css"></gpx-input>
+		
+		<template id="labeled-element">
+			<label></label>
+			<div id="labeled"></div>
+		</template>
 		
 		<template id="gpx-visualizer">
 			<fieldset>
@@ -52,6 +60,53 @@
 			</div>
 		</template>
 		
+		<template id="gpx-dom">
+			<div id="root">
+				
+				<style id="dom-style">.gpx-trk {
+  display: flex;
+  width: 100%;
+  max-height: 100%;
+  min-height: 100%;
+}
+.gpx-trkseg {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+.gpx-trkpt {
+  --size: .2rem;
+  background: no-repeat top left/100% 100% linear-gradient(red 0%, transparent 100%);
+  display: block;
+  height: calc(90% * var(--rel-ele));
+  left: calc(100% * var(--rel-dur));
+  position: absolute;
+  top: calc(100% - (100% * var(--rel-ele)));
+  width: var(--size);
+  transition: height .2s linear 0s;
+}</style>
+				
+				<input id="settings-toggle" class="toggle" type="checkbox">
+				<div class="wrapper">
+					<label class="toggle" for="settings-toggle">📝 Settings</label>
+					<div id="settings-container" class="container">
+						<text-area id="dom-style-textarea" template="text-area" shadow-css="#text-area-css"></text-area>
+					</div>
+				</div>
+				
+				<input id="dom-toggle" class="toggle" type="checkbox">
+				<div class="wrapper">
+					<label class="toggle" for="dom-toggle">📝 DOM</label>
+					<div id="dom-container" class="container">
+						<div id="dom-ctrl"><button id="-dom-render" class="custom-button" type="button">Render</button></div>
+						<div id="dom"></div>
+					</div>
+				</div>
+				
+			</div>
+		</template>
+		
 		<template id="gpx-stringifier">
 			
 			<div id="root">
@@ -68,7 +123,8 @@
 				<div class="wrapper">
 					<label class="toggle" for="edit-toggle">✍️ Edit</label>
 					<div id="edit-container" class="container">
-						<text-area id="edit" template="text-area" shadow-css="#text-area-css" value='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ [🚩 {elevation("m","max") round-f}m 📈 {elevation("m", "pos") round-f}m] ⏱ {duration("h") suffix(":") replace("0:","")}{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></text-area>
+						<!--<text-area id="edit" template="text-area" shadow-css="#text-area-css" value='👣 {[0,,,4,] {{distance-total("km") round-f aaa}km} replace("km", "kilometers")} 🏃 {speed("km/h", "avg") round-f}km/h ⛰ [🚩 {elevation("m","max") round-f}m 📈 {elevation("m", "pos") round-f}m] ⏱ {duration("h") after(":") replace("0:","")}{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></text-area>-->
+						<text-area id="edit" template="text-area" shadow-css="#text-area-css" value='👣 {distance-total("km") round-f}km 🏃 {speed("km/h", "avg") round-f}km/h ⛰ [🚩 {elevation("m","max") round-f}m 📈 {elevation("m", "pos") round-f}m] ⏱ {duration("h") after(":") replace("0:","")}{duration("m") pad}:{duration("s") pad} 📅 {points("y", "0%", "date")}/{points("M", "0%", "date")}/{points("d", "0%", "date")} {points("dn", "0%", "date")}. {points("h12", "0%", "date")}:{points("m", "0%", "date") pad} {points("hn", "0%", "date")}'></text-area>
 					</div>
 				</div>
 				
@@ -96,59 +152,6 @@
 				
 			</div>
 			
-		</template>
-		
-		<template id="-gpx-stringify">
-			<div id="root">
-				
-				<input id="output-toggle" class="toggle" type="checkbox">
-				<div class="wrapper">
-					<label class="toggle" for="output-toggle">📤 Output</label>
-					<div id="output" class="container">
-						<div class="output node">
-							<textarea id="output-area"></textarea>
-						</div>
-						<div class="controls">
-							<copy-element class="copy custom-button" source="#output-area">Copy</copy-element>
-							<button class="tweet custom-button" type="button">Tweet</button>
-							<button class="update custom-button" type="button">Update</button>
-							<clear-element class="clear custom-button" source="#output-area">Clear</clear-element>
-						</div>
-					</div>
-				</div>
-				
-				<input id="input-toggle" class="toggle" type="checkbox" checked>
-				<div class="wrapper">
-					<label class="toggle" for="input-toggle">📥 Input GPX</label>
-					<div id="input" class="container">
-						<div class="editor node">
-							<textarea id="input-area"></textarea>
-						</div>
-						<div class="controls">
-							<copy-element class="copy custom-button" source="#input-area">Copy</copy-element>
-							<button id="input-output-button" type="button" class="custom-button">Output</button>
-							<button id="input-view-spec-button" type="button" class="custom-button">View Spec</button>
-							<clear-element class="clear custom-button" source="#input-area">Clear</clear-element>
-						</div>
-					</div>
-				</div>
-				
-				<input id="edit-toggle" class="toggle" type="checkbox">
-				<div class="wrapper">
-					<label class="toggle" for="edit-toggle">✍️ Edit</label>
-					<div id="edit" class="container">
-						<div class="editor node">
-							<textarea id="edit-area"></textarea>
-						</div>
-						<div class="controls">
-							<copy-element class="copy custom-button" source="#edit-area">Copy</copy-element>
-							<button id="edit-output-button" type="button" class="custom-button">Output</button>
-							<clear-element class="clear custom-button" source="#edit-area">Clear</clear-element>
-						</div>
-					</div>
-				</div>
-				
-			</div>
 		</template>
 		
 	</body>

@@ -571,6 +571,7 @@ class GlobalCapturer extends MicroBracket {
 }
 class MicroParser extends MicroCore {
 	
+	static $afx = Symbol('MicroParser.afx');
 	static $bkt = Symbol('MicroParser.bkt');
 	static $cap = Symbol('MicroParser.cap');
 	static $enc = Symbol('MicroParser.enc');
@@ -579,6 +580,8 @@ class MicroParser extends MicroCore {
 	static $parse = Symbol('MicroParser.parse');
 	static $sep = Symbol('MicroParser.sep');
 	
+	static affixL = '[';
+	static affixR = ']';
 	static bracketL = '(';
 	static bracketR = ')';
 	static separator = /\s+/g;
@@ -619,29 +622,40 @@ class MicroParser extends MicroCore {
 		if (bl) {
 			
 			const cl = chrIndices.length, excluded = [];
-			let i, ci,cIdx,cEnd, bi,bi0,bIdx,bEnd, ei;
+			let i, ci,cIdx,cEnd, bi,bi0,bIdx,bEnd, ei, lastBIdxREnd;
+			//const dev = chrIndices?.[0]?.executor[MicroParser.$str] === 'points("d", "0%", "date")';
 			
 			i = bi = bi0 = ei = -1;
 			while (++i < cl) {
 				
-				cEnd = (cIdx = chrIndices[i]).end;
-				while (++bi < bl && ((cEnd > (bIdx = bounds[bi]).l.end && cEnd <  bIdx.r.end) || cEnd >  bIdx.r.end));
+				cEnd = (cIdx = chrIndices[i]).end, lastBIdxREnd = -1;
 				
-				if (bi !== bl) {
+				// このループから抜ける時は、現在のセパレーターの位置が、文字列中に存在するすべての括弧外にあり、かつ左方に存在している。
+				while (++bi < bl && (cEnd > (bIdx = bounds[bi]).l.end || cEnd < lastBIdxREnd)) lastBIdxREnd = bIdx.r.end;
+				//while (++bi < bl && ((cEnd > (bIdx = bounds[bi]).l.end && cEnd < bIdx.r.end) || cEnd > bIdx.r.end));
+				
+				
+				//if (bi !== bl) {
+				if (bi < bl) {
 					
 					bi > bl && (bi = bl);
-					//hi(bi,bl,bi0,excluded,bounds);
 					while (++bi0 < bi) excluded[++ei] = bounds[bi0];
 					--bi, --bi0, excluded[++ei] = cIdx, ci = undefined;
 					
-				} else ci = i;
+				} else {
+					
+					bounds[bl - 1].r.end < cEnd && (ci = --i);
+					break;
+					
+				}
 				
 			}
 			//hi(cl,bi,bi0,bl, bi0 === -1 || bi0 !== bi,excluded,chrIndices,bounds);
 			//if ((!cl && (bi = bl)) || bi0 === -1 || bi0-- !== bi) while (++bi0 < bi) excluded[++ei] = bounds[bi0];
 			if ((!cl && (bi = bl)) || bi0 === -1 || bi0 !== bl) while (++bi0 < bl) excluded[++ei] = bounds[bi0];
 			
-			if (ci-- !== undefined) while (++ci < cl) excluded[++ei] = chrIndices[ci];
+			//if (ci-- !== undefined) while (++ci < cl) excluded[++ei] = chrIndices[ci];
+			if (ci !== undefined) while (++ci < cl) excluded[++ei] = chrIndices[ci];
 			
 			return excluded;
 			
@@ -657,18 +671,19 @@ class MicroParser extends MicroCore {
 	// update を通じた変更であれば上記のようにインスタンス全体に反映されるが、
 	// gc に指定したインスタンスのプロパティやメソッドを使って個別に変更してもそれはこのオブジェクトの他のインスタンスには反映されない。
 	
-	constructor(str, gc, bracketL, bracketR, sep) {
+	constructor(str, gc, bracketL, bracketR, affixL, affixR, sep) {
 		
 		super(str);
 		
-		const	{ $bkt, $cap, $enc, $gc, $sep } = MicroParser,
-				{ constructor: { bracketL: bktL, bracketR: bktR, separator: _sep } } = this;
+		const	{ $afx, $bkt, $cap, $enc, $gc, $sep } = MicroParser,
+				{ constructor: { affixL: afxL, affixR: afxR, bracketL: bktL, bracketR: bktR, separator: _sep } } = this;
 		
 		this[$gc] = gc = gc instanceof GlobalCapturer ? gc : new GlobalCapturer(str),
 		
 		this[$enc] = new MicroEnclosure(str, gc.enc, gc.esc),
 		this[$cap] = new MicroCapturer(str, gc.L, gc.R, gc.esc),
 		this[$bkt] = new MicroCapturer(str, bracketL || bktL, bracketR || bktR, gc.esc),
+		this[$afx] = new MicroCapturer(str, affixL || afxL, affixR || afxR, gc.esc),
 		this[$sep] = sep || _sep;
 		
 	}
@@ -678,14 +693,27 @@ class MicroParser extends MicroCore {
 		
 		if (!(coOrMp instanceof MicroParser)) throw new TypeError();
 		
-		const	{ cache: { co } } = this, l = co.length, { L: bracketL, R: bracketR } = this[MicroParser.$bkt],
+		const	{ $afx, $bkt } = MicroParser,
+				{ cache: { co } } = this,
+				l = co.length,
+				{ L: bracketL, R: bracketR } = this[$bkt],
+				{ L: affixL, R: affixR } = this[$afx],
 				gc = this.createGCFromMP(coOrMp, str);
 		let i, c;
 		
 		i = -1;
-		while (++i < l && !((c = co[i]).gc === gc && c.bracketL === bracketL && c.bracketR === bracketR));
+		while	(
+					++i < l &&
+					!(
+						(c = co[i]).gc === gc &&
+						c.bracketL === bracketL &&
+						c.bracketR === bracketR &&
+						c.affixL === affixL &&
+						c.affixR === affixR
+					)
+				);
 		
-		return i === l ?	(co[i] = { $: new MicroCoParser(str, gc, bracketL, bracketR), gc, bracketL, bracketR }).$ :
+		return i === l ?	(co[i] = { $: new MicroCoParser(str, gc, bracketL, bracketR, affixL, affixR), gc, bracketL, bracketR, affixL, affixR }).$ :
 								(arguments.length > 1 ? (c.$.str = str, c.$) : c.$);
 		
 	}
@@ -704,7 +732,7 @@ class MicroParser extends MicroCore {
 		
 		if (i === l) {
 			
-			const { $bkt, $gc, $sep } = MicroParser, { L, R, enc, esc } = mp[$gc];
+			const { L, R, enc, esc } = mp[MicroParser.$gc];
 			
 			return (gc[i] = { $: new GlobalCapturer(str, L, R, enc, esc), mp }).$;
 			
@@ -717,10 +745,11 @@ class MicroParser extends MicroCore {
 		
 		if (!(mp instanceof MicroParser)) throw new TypeError();
 		
-		const	{ $bkt, $sep } = MicroParser,
+		const	{ $afx, $bkt, $sep } = MicroParser,
 				{ cache: { mp: cached } } = this,
 				l = cached.length,
 				{ L: bracketL, R: bracketR } = mp[$bkt],
+				{ L: affixL, R: affixR } = mp[$afx],
 				gc = this.createGCFromMP(mp, str),
 				sep = mp[$sep];
 		let i, m;
@@ -728,13 +757,23 @@ class MicroParser extends MicroCore {
 		i = -1;
 		while	(
 					++i < l &&
-					!((m = cached[i]).gc === gc && m.bracketL === bracketL && m.bracketR === bracketR && m.sep === sep)
+					!(
+						(m = cached[i]).gc === gc &&
+						m.bracketL === bracketL && m.bracketR === bracketR &&
+						m.affixL === affixL && m.affixR === affixR &&
+						m.sep === sep
+					)
 				);
 		
 		return	i === l ?
 						(
-							cached[i] =
-								{ $: new MicroParser(str, gc, bracketL, bracketR, mp[$sep]), gc, bracketL, bracketR, sep }
+							cached[i] =	{
+												$: new MicroParser(str, gc, bracketL, bracketR, affixL, affixR, mp[$sep]),
+												gc,
+												bracketL, bracketR,
+												affixL, affixR,
+												sep
+											}
 						).$ :
 						arguments.length > 1 ? (m.$.str = str, m.$) : m.$;
 		
@@ -754,49 +793,108 @@ class MicroParser extends MicroCore {
 		return this[MicroParser.$parse]();
 		
 	}
-	
-	split() {
+	_split() {
 		
-		const { $bkt, $cap, $enc, $gc, $sep, $str, getExcluded } = MicroParser,
+		const { $afx, $bkt, $cap, $enc, $gc, $sep, $str, getExcluded } = MicroParser,
 				sep = this[$sep],
 				sepIndices =	getExcluded(
 										this[$gc].escape(sep, undefined, undefined, true),
 										...this[$enc].enclose(),
 										...this[$cap].capture(undefined, true),
-										...this[$bkt].capture(undefined, true)
+										...this[$bkt].capture(undefined, true),
+										...this[$afx].capture(undefined, true)
 									),
 				l = sepIndices.length,
 				str = this[$str],
-				splitted = [];
-		let i,i0, indexStart, sepIdx,lastSepIdx;
-		
+				splitted = [],
+				dev = str.indexOf(',,') > -1 || str === 'points("d", "0%", "date")';
+		let i,i0, indexStart, sepIndex, sliced, dev0,dev1, lastBoundEndIndex;
+		//coco "{0 1 2}" が [ "0", "1", "2" ] にならない [ "0", "", "1", "", "2" ] のようになる。
 		i = i0 = -1, indexStart = 0;
-		while (++i < l)	'l' in (sepIdx = sepIndices[i]) ?
+		while (++i < l)	'l' in (sepIndex = sepIndices[i]) ?
 									(
-										splitted[++i0] = str.slice(indexStart, (sepIdx = sepIndices[i].l.chrIndex)).trim(),
-										splitted[++i0] = str.slice(sepIdx, (sepIdx = sepIndices[i].r).end).trim()
+										(sliced = str.slice(indexStart, lastBoundEndIndex = sepIndex.l.chrIndex).trim()) &&
+											(splitted[++i0] = sliced),
+										(sliced = str.slice(lastBoundEndIndex, lastBoundEndIndex = sepIndex.r.end).trim()) &&
+											(splitted[++i0] = sliced),
+										dev && hi('brk', indexStart, lastBoundEndIndex)
 									) :
-									(splitted[++i0] = str.slice(indexStart, (sepIdx = sepIndices[i]).chrIndex).trim()),
-								indexStart = sepIdx.end;
-		splitted[++i0] = str.slice(indexStart).trim();
-		
+									// 以下の処理はセパレーターによって区切られた部分を切り出している。恐らく原則空文字が入る。
+									// これによって例えば [ 0, 1, , 3, ] などで三番目と五番目の要素がパース上認識できるようになると思われる。
+									//(splitted[++i0] = str.slice(indexStart, (sepIndex = sepIndices[i]).chrIndex).trim(), hi(sepIndices,splitted,str,indexStart,sepIndex.chrIndex)),
+									(
+										hi('sep', str, indexStart, sepIndices[i].chrIndex, indexStart === sepIndices[i].chrIndex),
+										(lastBoundEndIndex === undefined || lastBoundEndIndex === sepIndex.chrIndex) &&
+												(
+													splitted[++i0] = str.slice(indexStart, sepIndex.chrIndex).trim(),
+													lastBoundEndIndex = undefined
+												)
+									),
+								indexStart = sepIndex.end;
+		(sliced = str.slice(indexStart).trim()) && (splitted[++i0] = sliced);
+		dev && hi(str,splitted,sepIndices);
 		return splitted;
-
+		
+	}
+	split() {
+		
+		const { $afx, $bkt, $cap, $enc, $gc, $sep, $str, getExcluded } = MicroParser,
+				sep = this[$sep],
+				sepIndices =	getExcluded(
+										this[$gc].escape(sep, undefined, undefined, true),
+										...this[$enc].enclose(),
+										...this[$cap].capture(undefined, true),
+										...this[$bkt].capture(undefined, true),
+										...this[$afx].capture(undefined, true)
+									),
+				l = sepIndices.length,
+				str = this[$str],
+				splitted = [],
+				dev = str.indexOf(',,') > -1 || str === 'points("d", "0%", "date")';
+		let i,i0, indexStart, sepIndex,sepBoundEndIndex, sliced;
+		//coco "{0 1 2}" が [ "0", "1", "2" ] にならない [ "0", "", "1", "", "2" ] のようになる。
+		i = i0 = -1, indexStart = 0;
+		while (++i < l)	'l' in (sepIndex = sepIndices[i]) ?
+									// 以下の処理は、一番外側の境界に収まっている部分を切り出している。
+									(
+										(sliced = str.slice(indexStart, (sepBoundEndIndex = sepIndex.l.chrIndex)).trim()) &&
+											(splitted[++i0] = sliced),
+										(sliced = str.slice(sepBoundEndIndex, sepBoundEndIndex = sepIndex.r.end).trim()) &&
+											(splitted[++i0] = sliced),
+										//dev && hi('brk', indexStart, sepBoundEndIndex),
+										indexStart = sepBoundEndIndex
+									) :
+									// 以下の処理はセパレーターによって区切られた部分を切り出している。恐らく原則空文字が入る。
+									// これによって例えば [ 0, 1, , 3, ] などで三番目と五番目の要素がパース上認識できるようになると思われる。
+									//(splitted[++i0] = str.slice(indexStart, (sepIndex = sepIndices[i]).chrIndex).trim(), hi(sepIndices,splitted,str,indexStart,sepIndex.chrIndex)),
+									(
+										//hi('sep', str, indexStart, sepBoundEndIndex, sepIndex.chrIndex, indexStart=== sepIndex.chrIndex),
+										(sepBoundEndIndex === undefined || sepBoundEndIndex !== indexStart) &&
+											(splitted[++i0] = str.slice(indexStart, sepIndex.chrIndex).trim()),
+										sepBoundEndIndex = undefined,
+										indexStart = sepIndex.end
+									);
+		
+		((sliced = str.slice(indexStart).trim()) || !('l' in sepIndex)) && (splitted[++i0] = sliced);
+		//dev && hi(str,splitted,sepIndices);
+		return splitted;
+		
 	}
 	
 	// このメソッドを通じて各値を変更した場合、例えば引数に現在使われてる値と同じ値を指定してもキャッシュの初期化が発生するように、
 	// 引数の指定がキャッシュの初期化を引き起こすトリガーになっており、厳密に値の変化に追従しない点に注意が必要。
-	update(gc, bracketL, bracketR, esc, disablesStructure) {
+	update(gc, bracketL, bracketR, affixL, affixR, esc, disablesStructure) {
 		
-		const { $bkt, $gc } = MicroParser, { cache: { co, mp } } = this;
+		const { $afx, $bkt, $gc } = MicroParser, { cache: { co, mp } } = this;
 		let i,l, cached, structures;
 		
 		if (gc instanceof GlobalCapturer && gc !== this[$gc]) {
 			
 			this[$gc] = gc;
 			
-			const	{ $bkt, $cap, $enc } = MicroParser,
+			const	{ $cap, $enc } = MicroParser,
 					{ L, R, enc: E, esc } = gc,
+					afx = this[$afx],
 					bkt = this[$bkt],
 					cap = this[$cap],
 					enc = this[$enc],
@@ -805,6 +903,7 @@ class MicroParser extends MicroCore {
 			enc instanceof MicroEnclosure && (enc.enc = E, enc.esc = esc),
 			cap instanceof MicroCapturer && (cap.L = L, cap.R = R, cap.esc = esc),
 			bkt instanceof MicroCapturer && (bkt.esc = esc),
+			afx instanceof MicroCapturer && (afx.esc = esc),
 			
 			structures = !disablesStructure;
 			
@@ -815,6 +914,16 @@ class MicroParser extends MicroCore {
 			const bkt = this[$bkt];
 			
 			bracketL && (bkt.L = bracketL), bracketR && (bkt.R = bracketR),
+			
+			structures ||= !disablesStructure;
+			
+		}
+		
+		if (affixL || affixR) {
+			
+			const afx = this[$afx];
+			
+			affixL && (afx.L = affixL), affixR && (afx.R = affixR),
 			
 			structures ||= !disablesStructure;
 			
@@ -836,10 +945,10 @@ class MicroParser extends MicroCore {
 		
 		if (esc !== gc.esc) {
 			
-			const { $bkt, $cap, $enc } = MicroParser, { cache: { co, gc, mp } } = this;
+			const { $afx, $bkt, $cap, $enc } = MicroParser, { cache: { co, gc, mp } } = this;
 			let i,l, cached;
 			
-			this[$enc].esc = this[$cap].esc = this[$bkt].esc = gc.esc = esc,
+			this[$enc].esc = this[$cap].esc = this[$bkt].esc = this[$afx].esc = gc.esc = esc,
 			
 			i = -1, l = co.length;
 			while (++i < l)
@@ -855,18 +964,44 @@ class MicroParser extends MicroCore {
 	}
 	updateStr(str) {
 		
-		const { $str } = MicroCore, { $bkt, $cap, $enc, $gc } = MicroParser;
+		const { $str } = MicroCore, { $afx, $bkt, $cap, $enc, $gc } = MicroParser;
 		
 		this[$str] = str,
 		this[$enc] && (this[$enc].str = str),
 		this[$cap] && (this[$cap].str = str),
 		this[$bkt] && (this[$bkt].str = str),
+		this[$afx] && (this[$afx].str = str),
 		this[$gc] && (this[$gc].str = str),
 		
 		this.structureCache();
 		
 	}
 	
+	get affixL() {
+		
+		return this[MicroParser.$afx].L;
+		
+	}
+	set affixL(v) {
+		
+		this.update(undefined, undefined, undefined, v);
+		
+	}
+	get affixR() {
+		
+		return this[MicroParser.$afx].R;
+		
+	}
+	set affixR(v) {
+		
+		this.update(undefined, undefined, undefined, undefined, v);
+		
+	}
+	get afx() {
+		
+		return this[MicroParser.$afx];
+		
+	}
 	get bracketL() {
 		
 		return this[MicroParser.$bkt].L;
@@ -874,7 +1009,7 @@ class MicroParser extends MicroCore {
 	}
 	set bracketL(v) {
 		
-		this.update(undefined, v, undefined);
+		this.update(undefined, v);
 		
 	}
 	get bracketR() {
@@ -971,9 +1106,12 @@ class MicroParser extends MicroCore {
 MicroParser.prototype[MicroParser.$exc] = function () {
 	
 	const	{ isArray } = Array,
-			{ bkt: { L: bktL, R: bktR }, cap: { L: capL, R: capR }, esc } = this,
+			{ isNaN } = Number,
+			{ afx: { L: afxL, R: afxR }, bkt: { L: bktL, R: bktR }, cap: { L: capL, R: capR }, enc: { enc }, esc } = this,
 			bktLL = bktL.length, bktRL = bktR.length,
+			afxLL = afxL.length, afxRL = afxR.length,
 			capLL = capL.length, capRL = capR.length,
+			encLength = enc.length,
 			params = this.split(),
 			executed = [];
 	let i,l, p,p0, ei, labeled, args;
@@ -983,17 +1121,45 @@ MicroParser.prototype[MicroParser.$exc] = function () {
 		
 		if ((p = params[i]).slice(0, bktLL) === bktL && p.slice(-bktRL) === bktR) {
 			
-			args = this.createCO(this, p.slice(bktL.length, -bktR.length)).exc(),
-			labeled ? (labeled.args = args, labeled = null) : (executed[++ei] = { args });
+			args = this.createCO(this, p.slice(bktLL, -bktRL)).exc(),
+			labeled && !('args' in labeled) ?	(labeled.args = args, labeled = null) :
+															(executed[++ei] = { args }, labeled = null);
+			
+		} else if (p.slice(0, afxLL) === afxL && p.slice(-afxRL) === afxR) {
+			
+			args = this.createCO(this, p.slice(afxLL, -afxRL)).exc(),
+			labeled && !('args' in labeled) ?
+				('affix' in labeled ? labeled.affix[labeled.affix.length] = args : labeled.affix = [ args ]) :
+				(executed[++ei] = args, labeled = null);
 			
 		} else if (p.slice(0, capLL) === capL && p.slice(-capRL) === capR) {
 			
 			labeled = null,
-			executed[++ei] = this.createMP(this, p.slice(capLL, -capRL)).exc();
+			//executed[++ei] = this.createMP(this, p.slice(capLL, -capRL)).exc();
+			executed[++ei] = this.createMP(this, p.slice(capLL, -capRL));
+			
+		} else if (p.slice(0, encLength) === enc && p.slice(-encLength) === enc) {
+			
+			labeled = null,
+			executed[++ei] = p.slice(encLength, -encLength);
 			
 		} else if (p) {
 			
-			executed[++ei] = labeled = { label: p };
+			switch (p) {
+				case 'true': case 'false':
+				executed[++ei] = p === 'true';
+				break;
+				case 'null':
+				executed[++ei] = null;
+				break;
+				case 'undefined':
+				executed[++ei] = undefined;
+				break;
+				default:
+				p && (executed[++ei] = isNaN(p0 = Number(p)) ? (labeled = { label: p }) : p0);
+			}
+			
+			(executed[ei] && typeof executed[ei] === 'object') || (labeled = null);
 			
 		}
 		
@@ -1027,62 +1193,75 @@ class MicroCoParser extends MicroParser {
 		
 		const	{ isNaN } = Number,
 				{ restore } = MicroEscaper,
-				{ bkt: { L: bktL, R: bktR }, cap: { L: capL, R: capR }, enc: { enc }, esc } = this,
+				{ afx: { L: afxL, R: afxR }, bkt: { L: bktL, R: bktR }, cap: { L: capL, R: capR }, enc: { enc }, esc } = this,
 				bktLL = bktL.length, bktRL = bktR.length,
+				afxLL = afxL.length, afxRL = afxR.length,
 				capLL = capL.length, capRL = capR.length,
 				encL = enc.length,
-				params = this.split();
-		let i,l, v, p;
+				params = this.split(),
+				executed = [];
+		let i,l,i0, v, p;
 		
-		i = -1, l = params.length;
+		i = i0 = -1, l = params.length;
 		while (++i < l) {
 			
-			if ((p = params[i]).slice(0, bktLL) === bktL && p.slice(-bktR.length) === bktR) {
+			if ((p = params[i]).slice(0, bktLL) === bktL && p.slice(-bktRL) === bktR) {
 				
 				const { co } = this;
 				
-				params[i] =	(co instanceof MicroCoParser ? co : (this.co = new MicroCoParser(undefined, esc))).
-									exc(p.slice(bktL.length, -bktR.length));
+				v =	(co instanceof MicroCoParser ? co : (this.co = new MicroCoParser(undefined, esc))).
+							exc(p.slice(bktLL, -bktRL));
+				
+			} else if (p.slice(0, afxLL) === afxL && p.slice(-afxRL) === afxR) {
+				
+				const { co } = this;
+				
+				v =	(co instanceof MicroCoParser ? co : (this.co = new MicroCoParser(undefined, esc))).
+							exc(p.slice(afxLL, -afxRL));
 				
 			} else if (p.slice(0, capLL) === capL && p.slice(-capRL) === capR) {
 				
 				const { mp } = this;
 				
-				params[i] =	(mp instanceof MicroParser ? mp : (this.mp = new MicroParser(undefined, esc))).
-									exc(p.slice(capL.length, -capR.length));
+				v =	(mp instanceof MicroParser ? mp : (this.mp = new MicroParser(undefined, esc))).
+							exc(p.slice(capLL, -capRL));
 				
 			} else if (p.slice(0, encL) === enc && p.slice(-encL) === enc) {
 				
-				params[i] = restore(p.slice(encL, -encL), esc);
+				v = restore(p.slice(encL, -encL), esc);
 				
-			} else if (p) {
+			} else /*if (p)*/ {
 				
 				switch (p) {
 					
 					case 'true': case 'false':
-					params[i] = p === 'true';
+					v = p === 'true';
 					break;
 					
 					case 'null':
-					params[i] = null;
+					v = null;
 					break;
 					
 					case 'undefined':
-					params[i] = undefined;
+					v = undefined;
 					break;
 					
 					default:
 					//if (isNaN(v = Number(p))) throw new TypeError();
 					//params[i] = v;
-					params[i] = isNaN(v = Number(p)) ? new TypeError() : v;
+					v = p === '' ? undefined : isNaN(v = Number(p)) ? new TypeError() : v;
+					//params[i] = p === '' ? ++i0 && (i0 = -1, undefined) : isNaN(v = Number(p)) ? new TypeError() : v;
 					
 				}
 				
-			} else params.splice(i--, 1), --l;
+			}// else params.splice(i--, 1), --l;
+			
+			
+			executed[++i0] = v;
 			
 		}
-		
-		return params;
+		//hi(params,executed);
+		return executed;
 		
 	}
 	

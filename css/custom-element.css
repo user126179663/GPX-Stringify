@@ -16,14 +16,9 @@
 	
 }
 
-input:checked + .wrapper {
-	
-	flex: 1 0;
-	
-}
 .wrapper {
 	
-	--wrapper-padding: 1rem;
+	--wrapper-padding: 0rem;
 	
 	border-bottom: 1px dotted rgba(240,240,240,1);
 	box-sizing: border-box;
@@ -33,6 +28,11 @@ input:checked + .wrapper {
 	padding: var(--wrapper-padding);
 	
 	transition: flex .2s ease 0s;
+	
+}
+input:checked + .wrapper {
+	
+	flex: 1 0;
 	
 }
 .wrapper:first-of-type {
@@ -58,8 +58,7 @@ label.toggle {
 	font: normal normal bold 140%/1 "Helvetica", "Arial", sans-serif;
 	height: fit-content;
 	margin: 0 auto;
-	margin-bottom: .5rem;
-	padding: .4rem;
+	padding: .6rem .4rem;
 	text-shadow: 0 2px 0 rgba(0,0,0,1), 0 0px 1.2rem rgba(0,0,0,.8);
 	user-select: none;
 	
@@ -167,7 +166,16 @@ textarea {
 	
 }
 
-toggle-button {
-	height: 1.5rem;
-	width: 2.25rem;
+.tweet {
+	
+	align-items: center;
+	background: rgba(255,255,255,.1);
+	border-radius: .4rem;
+	display: flex;
+	margin: 0 .2rem;
+	padding: .1rem .3rem;
+	
+}
+.tweet button {
+	margin-right: .3rem;
 }

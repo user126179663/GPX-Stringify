@@ -1,0 +1,19 @@
+@import "./custom-element.css";
+
+
+div#dom {
+	
+	display: flex;
+	flex: 1 0;
+	width: 100%;
+	
+}
+div#dom * {
+	
+}
+
+#dom-container {
+	
+	flex-direction: column;
+	
+}

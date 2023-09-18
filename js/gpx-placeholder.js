@@ -2,6 +2,8 @@ class GPXPlaceholder extends MicroParser {
 	
 	static $xml = Symbol('GPXPlaceholder.xml');
 	
+	static defaultSeparator = '\n';
+	
 	static upgradeTrack(track) {
 		
 		// 「トラック長」と「移動距離」の違いについては以下の URL 先の「Q:「トラック長」と「移動距離」の違いは。」を参照。
@@ -59,6 +61,174 @@ class GPXPlaceholder extends MicroParser {
 		
 	}
 	
+	static order(indices, source, defaultValue = raw) {
+		
+		const	parsed = GPXPlaceholder.parseIndices(indices, source, defaultValue),
+				parsedLength = parsed.length,
+				ordered = [];
+		let i;
+		
+		i = -1;
+		while (++i < parsedLength) ordered[i] = source[parsed[i]];
+		
+		return ordered;
+		
+	}
+	static isInt32(index) {
+		
+		return Number.isInteger(index) && index < 32**2;
+		
+	}
+	static parseIndices(indices, cap = 32**2-1, defaultValue = raw) {
+		
+		const	{ isArray } = Array, { isInt32 } = GPXPlaceholder;
+		let i;
+		
+		indices = isArray(indices) ? [ ...indices ] : [ defaultValue ];
+		
+		const	indicesLength = indices.length, parsed = [];
+		
+		if (!(isArray(cap) ? (cap = cap.length) : isInt32(cap)) || cap < 1) {
+			
+			return [];
+			
+		} else if (indicesLength < 2 && !isInt32(indices[0])) {
+			
+			i = -1, indices.length = 0;
+			while (++i < cap) parsed[i] = i;
+			
+		} else {
+			
+			const { max } = Math, lastIndicesIndex = indicesLength - 1, lastIndex = cap - 1, numbers = [];
+			let l,i0,i1,i2, pi, idx,idx0, first, last, numbersLength;
+			
+			i = pi = -1, l = indicesLength, first = 0;
+			while (++i < l) {
+				
+				if (isInt32(idx = indices[i])) {
+					
+					parsed[++pi] = first = indices[i] = idx < 0 ? max(cap + idx, 0) : idx > lastIndex ? lastIndex : idx;
+					
+				} else {
+					
+					i0 = i;
+					while (++i0 < indicesLength && !isInt32(indices[i0]));
+					
+					isInt32(idx0 = indices[i0 < indicesLength ? i0 : lastIndicesIndex]) ?
+						(last = idx0 < 0 ? max(cap + idx0, 0) : idx0 > lastIndex ? lastIndex : idx0) :
+						(last = defaultValue),
+					
+					i1 = first, i2 = -1, numbers.length = 0;
+					
+					if (first <= last) {
+						
+						while (++i1 < last) numbers[++i2] = i1;
+						
+					} else {
+						
+						while (--i1 > last) numbers[++i2] = i1;
+						
+					}
+					
+					i1 = -1, numbersLength = numbers.length, i || (parsed[++pi] = first);
+					while (++i1 < numbersLength) parsed[++pi] = numbers[i1];
+					first === last || (parsed[++pi] = first = last),
+					
+					i = i0;
+					
+				}
+				
+			}
+			
+		}
+		
+		return parsed;
+		
+	}
+	/*static order(indices, source, defaultValue = raw) {
+		
+		const	parsed = GPXPlaceholder.parseIndices(indices, source, defaultValue),
+				parsedLength = parsed.length,
+				ordered = [];
+		let i;
+		hi(parsed);
+		i = -1;
+		while (++i < parsedLength) ordered[i] = source[parsed[i]];
+		
+		return ordered;
+		
+	}
+	static isInt32(index) {
+		
+		return Number.isInteger(index) && index < 32**2;
+		
+	}
+	static parseIndices(raw, cap = 32**2-1, defaultValue = raw) {
+		
+		const	{ isArray } = Array,
+				{ isInt32 } = GPXPlaceholder,
+				indices = isArray(raw) ? [ ...raw ] : [ defaultValue ], indicesLength = indices.length;
+		let i;
+		
+		if (!(isArray(cap) ? (cap = cap.length) : isInt32(cap)) || cap < 1) {
+			
+			return [];
+			
+		} else if (indicesLength < 2 && !isInt32(indices[0])) {
+			
+			i = -1, indices.length = 0;
+			while (++i < cap) indices[i] = i;
+			
+		} else {
+			
+			const { max } = Math, lastIndicesIndex = indicesLength - 1, lastIndex = cap - 1, numbers = [];
+			let l,i0,i1,i2, idx,idx0, first,firstRangeIndex, last,lastRangeIndex;
+			
+			i = -1, lastRangeIndex = (l = indicesLength) - 1, first = firstRangeIndex = 0;
+			while (++i < l) {
+				
+				if (isInt32(idx = indices[i])) {
+					
+					first = indices[firstRangeIndex = i] = idx < 0 ? max(cap + idx, 0) : idx > lastIndex ? lastIndex : idx;
+					
+				} else {
+					
+					i0 = i;
+					while (++i0 < indicesLength && !isInt32(indices[i0]));
+					
+					isInt32(idx0 = indices[lastRangeIndex = i0]) &&
+						(last = idx0 < 0 ? max(cap + idx0, 0) : idx0 > lastIndex ? lastIndex : idx0),
+					
+					i1 = first, i2 = -1, numbers.length = 0;
+					
+					if (first <= last) {
+						
+						while (++i1 <= last) numbers[++i2] = i1;
+						
+					} else {
+						
+						while (--i1 >= last) numbers[++i2] = i1;
+						
+					}
+					hi(indices,i,first, last,numbers, lastRangeIndex, firstRangeIndex, lastRangeIndex - firstRangeIndex);
+					indices.splice(i, lastRangeIndex - firstRangeIndex, ...numbers),
+					firstRangeIndex = i += (i1 = numbers.length - 2), l += i1;
+					
+				}
+				
+			}
+			
+		}
+		
+		return indices;
+		
+	}*/
+	//static parseIndex(idx, min = 0, max = 0) {
+	//	
+	//	return Number.isNaN(idx = parseInt(idx)) || idx < min ? min : idx > max ? max : idx;
+	//	
+	//}
+	
 	constructor(str, xml, extension, ...args) {
 		
 		super(str, ...args),
@@ -67,6 +237,9 @@ class GPXPlaceholder extends MicroParser {
 		
 		this.gpx = new gpxParser(),
 		
+		this.xDOMParser = new DOMParser(),
+		this.xSerializer = new XMLSerializer(),
+		
 		this.setXml(xml);
 		
 	}
@@ -74,12 +247,132 @@ class GPXPlaceholder extends MicroParser {
 	parse() {
 		
 		const	{ isArray } = Array,
+				{ isNaN } = Number,
+				{ defaultSeparator, order } = GPXPlaceholder,
+				{ gpx: { tracks = [] }, extension, xDOMParser, xSerializer } = this,
+				tracksLength = tracks.length,
+				lastTrackIndex = tracksLength - 1,
+				fragments = this[MicroParser.$parse](),
+				fragmentsLength = fragments.length,
+				params = [],
+				values = [];
+		let	i,i0,i1,i2,
+				paramsLength,trksLength,argsLength,
+				fragment, trks,trk,trkLabel,trkArgs, param,separator, v, result, ext,args, xDOM, xTrks,xTrksLength, gpx,
+				recursive;
+		hi(fragments);
+		i = -1, result = '';
+		while (++i < fragmentsLength) {
+			
+			if	(isArray(fragment = fragments[i])) {
+				
+				trks = order(fragment[0], tracks, 0),
+				
+				// trk を複数指定した場合に結果の文字列を連結する際の文字列の決定。
+				// {[] "," ext()} この例であれば、"," がその文字列の指定に相当する。
+				// trk の指定子である [] の直後に指定するよう定めるため、以下ははそれを特定するための処理になる。
+				// かなり不細工だが、他の処理の実装との兼ね合いが原因。未指定の場合は Array.prototype.join の既定値。
+				
+				i0 = -1, paramsLength = fragment.length;
+				while (++i0 < paramsLength && !(!isArray(param = fragment[i0]) && param && typeof param === 'object'));
+				
+				paramsLength = i0, i0 = -1, separator = undefined;
+				while (++i0 < paramsLength && isArray(fragment[i0]));
+				
+				i0 < paramsLength ? --i0 : (i0 = -1);
+				while (++i0 < paramsLength && typeof fragment[i0] !== 'string');
+				separator = i0 === paramsLength ? defaultSeparator : fragment[i0];
+				
+				// 以下は構文内の関数部分の抜き出し。
+				
+				--i0, i1 = -1, paramsLength = fragment.length, params.length = 0, recursive = null;
+				while (++i0 < paramsLength) (param = fragment[i0]) && typeof param === 'object' && !isArray(param) &&
+					(param instanceof MicroParser ? (recursive = param) : (params[++i1] = param));
+				
+				if ((paramsLength = ++i1) || recursive) {
+					
+					trkLabel = (param = params?.[0])?.label, trkArgs = param?.args,
+					i0 = -1, trksLength = trks.length, values.length = 0;
+					while (++i0 < trksLength) {
+						
+						if (recursive && typeof (v = recursive.str) === 'string' && v) {
+							
+							xDOM = xDOMParser.parseFromString(this[GPXPlaceholder.$xml], 'application/xml'),
+							i1 = -1, xTrks = xDOM.querySelectorAll('trk'), xTrksLength = xTrks.length;
+							while (++i1 < xTrksLength) i0 === i1 || (xTrks[i1--].remove(), --xTrksLength);
+							(
+								gpx ||= new GPXPlaceholder	(
+																			v,
+																			undefined,
+																			extension,
+																			this.createGCFromMP(this, v),
+																			this[MicroParser.$bkt].L, this[MicroParser.$bkt].R,
+																			this[MicroParser.$afx].L, this[MicroParser.$afx].R,
+																			this[MicroParser.$sep]
+																	)
+							).setXml(xSerializer.serializeToString(xDOM)),
+							v = gpx.parse();
+							
+						} else {
+							
+							(v = (trk = trks[i0])[trkLabel]) &&
+							typeof v === 'object' &&
+							(v = trkArgs ? v.get(...trkArgs) : v.get());
+							
+						}
+						
+						if (v !== undefined) {
+							
+							i1 = recursive ? -1 : 0;
+							while (++i1 < paramsLength) {
+								
+								if (extension.hasOwnProperty((param = params[i1]).label)) {
+									
+									if (typeof (ext = extension[param.label]) === 'function') {
+										
+										if (isArray(args = param.args)) {
+											
+											i2 = -1, argsLength = args.length;
+											while (++i2 < argsLength && !(args[i2] instanceof Error));
+											i2 === argsLength && (v = ext(v, ...args));
+											
+										} else v = ext(v);
+										
+									} else if (!v || typeof v !== 'object') v = ext;
+									
+								}
+								
+							}
+							
+						}
+						
+						values[i0] = v;
+						
+					}
+					
+					fragment = values.join(separator);
+					
+				}
+				
+			}
+			
+			result += ''+(fragment && typeof fragment === 'object' ? '' : fragment);
+			
+		}
+		
+		return result;
+		
+	}
+	
+	parse_() {
+		
+		const	{ isArray } = Array,
 				{ gpx: { tracks: { 0: track = {} } }, extension } = this,
 				parsed = this[MicroParser.$parse](),
 				parsedLength = parsed.length;
-		let i,i0,l0,i1,l1, p, result,ri, target,targetArgs, v, name, ext,args;
-		
-		i = ri = -1, result = '';
+		let i,i0,l0,i1,l1, p, result, target,targetArgs, v, name, ext,args;
+		hi(parsed);
+		i = -1, result = '';
 		while (++i < parsedLength) {
 			
 			if (isArray(p = parsed[i]) && typeof (target = p[0]) === 'object' && (v = track[target.label]) !== undefined) {
@@ -175,16 +468,17 @@ class GPXPlaceholderExtensions {
 		
 	}
 	
-	static prefix(str, prefix = '') {
+	static before(str, before = '') {
 		
-		return prefix + str;
-		
-	}
-	static suffix(str, suffix = '') {
-		
-		return str + suffix;
+		return before + str;
 		
 	}
+	static after(str, after = '') {
+		
+		return str + after;
+		
+	}
+	
 	static replace(str, substr = '', newSubstr = '') {
 		
 		return str.replace(substr, newSubstr);

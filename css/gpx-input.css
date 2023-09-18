@@ -21,7 +21,19 @@
 
 .wrapper > label {
 	
+	padding: .6rem .4rem 0 .6rem;
 	writing-mode: vertical-rl;
+	
+}
+
+#input-container {
+	
+	padding: 0rem;
+	
+}
+input:checked + .wrapper > #input-container {
+	
+	padding: .5rem;
 	
 }
 
@@ -29,13 +41,12 @@
 	
 	box-sizing: border-box;
 	flex-direction: column;
-	padding-left: .5rem;
 	
 }
 #outputs-container.container > * {
 	
 	flex: 1 0 fit-content;
-	margin: .5rem 0;
+	margin: .5rem;
 	
 }
 #outputs-container.container legend {
