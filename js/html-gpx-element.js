@@ -322,11 +322,11 @@ export class HTMLGPXInputElement extends ElementShadow {
 		
 	}
 	
-	parse() {
+	async parse() {
 		
 		const { gpx, outputArea } = this;
 		
-		outputArea.value = gpx.parse(),
+		outputArea.value = await gpx.parse(),
 		outputArea.dispatchEvent(new Event('change'));
 		
 	}
@@ -870,9 +870,9 @@ export class HTMLGPXStringifierElement extends HTMLGPXPlaceholderElement {
 		
 	}
 	
-	parse() {
+	async parse() {
 		
-		return this.outputArea.value = Object.getPrototypeOf(this.constructor.prototype).parse.call(this);
+		return this.outputArea.value = await Object.getPrototypeOf(this.constructor.prototype).parse.call(this);
 		
 	}
 	
